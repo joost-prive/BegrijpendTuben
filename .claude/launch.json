@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "BegrijpendTuben (Flask)",
+      "runtimeExecutable": ".venv/Scripts/python",
+      "runtimeArgs": ["-u", "app.py"],
+      "port": 5000
+    }
+  ]
+}

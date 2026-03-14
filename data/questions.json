@@ -1,0 +1,183 @@
+{
+  "__opmerking__": "Dummy-vragen voor het prototype. Sleutel = YouTube video ID. 'standaard' wordt gebruikt als er geen specifieke vragen zijn.",
+
+  "standaard": [
+    {
+      "vraag": "Wat was het onderwerp van deze video?",
+      "opties": ["Dieren in de natuur", "Hoe dingen werken", "Een spannend avontuur"],
+      "correct": "Hoe dingen werken",
+      "uitleg": "De video legde uit hoe iets werkt of hoe iets in elkaar zit."
+    },
+    {
+      "vraag": "Welke kleur zag je het meest in de video?",
+      "opties": ["Blauw", "Groen", "Rood"],
+      "correct": "Blauw",
+      "uitleg": "Blauw was de meest voorkomende kleur in deze video."
+    },
+    {
+      "vraag": "Hoe voelde jij je tijdens de video?",
+      "opties": ["Blij en nieuwsgierig 😊", "Een beetje verveeld 😐", "Heel erg bang 😨"],
+      "correct": "Blij en nieuwsgierig 😊",
+      "uitleg": "Leren is leuk en maakt je nieuwsgierig naar meer!"
+    }
+  ],
+
+  "OHkiIzArqD8": [
+    {
+      "vraag": "Hoeveel miljard zenuwcellen heeft ons brein ongeveer?",
+      "opties": ["100 miljard", "10 miljard", "1 miljard"],
+      "correct": "100 miljard",
+      "uitleg": "Ons brein heeft maar liefst zo'n 100 miljard zenuwcellen – ongelooflijk veel!"
+    },
+    {
+      "vraag": "Welk deel van het brein regelt je bewegingen?",
+      "opties": ["De kleine hersenen", "De hersenstam", "Het grote brein"],
+      "correct": "De kleine hersenen",
+      "uitleg": "De kleine hersenen (cerebellum) zorgen voor evenwicht en coördinatie van je bewegingen."
+    },
+    {
+      "vraag": "Waarvoor is de hersenstam verantwoordelijk?",
+      "opties": ["Ademen en hartslag", "Rekenen en taal", "Dromen en slapen"],
+      "correct": "Ademen en hartslag",
+      "uitleg": "De hersenstam regelt automatische functies zoals ademen en je hartslag."
+    },
+    {
+      "vraag": "Welk orgaan beschermt het brein van buitenaf?",
+      "opties": ["De schedel", "De huid", "Het ruggenmerg"],
+      "correct": "De schedel",
+      "uitleg": "Je harde schedel vormt een beschermende 'helm' om je brein."
+    },
+    {
+      "vraag": "Wat eet het brein om energie te krijgen?",
+      "opties": ["Suiker (glucose)", "Vet", "Eiwitten"],
+      "correct": "Suiker (glucose)",
+      "uitleg": "Het brein gebruikt glucose als zijn belangrijkste brandstof."
+    }
+  ],
+
+  "YbgnEHNgfNw": [
+    {
+      "vraag": "Wat is de eerste fase in de levenscyclus van een vlinder?",
+      "opties": ["Het ei", "De rups", "De pop"],
+      "correct": "Het ei",
+      "uitleg": "Een vlinder begint zijn leven als een piepklein eitje op een blad."
+    },
+    {
+      "vraag": "Hoe noem je de fase waarin de rups verandert in een vlinder?",
+      "opties": ["Verpopping", "Metamorfose", "Groei"],
+      "correct": "Verpopping",
+      "uitleg": "In de popfase ondergaat de rups een metamorfose en wordt het een vlinder."
+    },
+    {
+      "vraag": "Wat eet een rups het liefst?",
+      "opties": ["Bladeren", "Bloemblaadjes", "Ander insecten"],
+      "correct": "Bladeren",
+      "uitleg": "Rupsen eten voornamelijk bladeren om te groeien en energie op te slaan."
+    },
+    {
+      "vraag": "Hoeveel poten heeft een vlinder?",
+      "opties": ["6 poten", "8 poten", "4 poten"],
+      "correct": "6 poten",
+      "uitleg": "Net als alle insecten heeft een vlinder precies 6 poten."
+    },
+    {
+      "vraag": "Waarom zijn vlinders belangrijk voor bloemen?",
+      "opties": ["Ze verspreiden stuifmeel", "Ze eten rupsen op", "Ze maken honing"],
+      "correct": "Ze verspreiden stuifmeel",
+      "uitleg": "Als een vlinder nectar drinkt, neemt hij stuifmeel mee en bestuift zo bloemen."
+    }
+  ],
+
+  "9RMHHwJ9Eqk": [
+    {
+      "vraag": "Welke planeet is het grootst in ons zonnestelsel?",
+      "opties": ["Jupiter", "Saturnus", "Neptunus"],
+      "correct": "Jupiter",
+      "uitleg": "Jupiter is de grootste planeet – hij is zelfs groter dan alle andere planeten samen!"
+    },
+    {
+      "vraag": "Welke planeet heeft prachtige ringen?",
+      "opties": ["Saturnus", "Mars", "Venus"],
+      "correct": "Saturnus",
+      "uitleg": "Saturnus is bekend om zijn spectaculaire ringen van ijs en steengruis."
+    },
+    {
+      "vraag": "Hoe heet de planeet waarop wij leven?",
+      "opties": ["Aarde", "Mars", "Venus"],
+      "correct": "Aarde",
+      "uitleg": "Wij leven op de Aarde, de derde planeet van de zon."
+    },
+    {
+      "vraag": "Welke planeet is het dichtst bij de zon?",
+      "opties": ["Mercurius", "Venus", "Mars"],
+      "correct": "Mercurius",
+      "uitleg": "Mercurius is de kleinste planeet én staat het dichtst bij de zon."
+    },
+    {
+      "vraag": "Hoe lang doet de aarde erover om één keer om de zon te draaien?",
+      "opties": ["365 dagen", "24 uur", "30 dagen"],
+      "correct": "365 dagen",
+      "uitleg": "Eén omloop om de zon duurt precies één jaar – dat zijn 365 dagen!"
+    }
+  ],
+
+  "yqGNaVJ3Kkk": [
+    {
+      "vraag": "Wat heeft een plant nodig om te groeien?",
+      "opties": ["Water, licht en lucht", "Alleen water", "Alleen zonneschijn"],
+      "correct": "Water, licht en lucht",
+      "uitleg": "Planten hebben water, zonlicht en koolstofdioxide (uit de lucht) nodig om te leven."
+    },
+    {
+      "vraag": "Hoe noem je het proces waarbij planten zonlicht omzetten in voedsel?",
+      "opties": ["Fotosynthese", "Ademhaling", "Groei"],
+      "correct": "Fotosynthese",
+      "uitleg": "Bij fotosynthese maken planten met behulp van zonlicht hun eigen voedsel."
+    },
+    {
+      "vraag": "Welk kleurstofje maakt een blad groen?",
+      "opties": ["Chlorofyl", "Caroteen", "Anthocyaan"],
+      "correct": "Chlorofyl",
+      "uitleg": "Chlorofyl is het groene pigment in bladeren dat zonlicht opvangt."
+    },
+    {
+      "vraag": "Via welk klein onderdeel drinkt een plant water op?",
+      "opties": ["De wortels", "De bladeren", "De stengel"],
+      "correct": "De wortels",
+      "uitleg": "Wortels zuigen water en voedingsstoffen uit de grond op."
+    }
+  ],
+
+  "Iwuy4hHO3YQ": [
+    {
+      "vraag": "Hoeveel uur slaap heeft een kind van 8 jaar nodig?",
+      "opties": ["9 tot 11 uur", "5 tot 6 uur", "7 tot 8 uur"],
+      "correct": "9 tot 11 uur",
+      "uitleg": "Kinderen van 6-12 jaar hebben 9 tot 11 uur slaap per nacht nodig om goed te kunnen groeien."
+    },
+    {
+      "vraag": "Wat gebeurt er met je lichaam als je slaapt?",
+      "opties": ["Je lichaam herstelt zich en groeit", "Je lichaam doet niks", "Je wordt ziek"],
+      "correct": "Je lichaam herstelt zich en groeit",
+      "uitleg": "Tijdens het slapen repareert je lichaam zichzelf, groei je en verwerkt je brein wat je hebt geleerd."
+    },
+    {
+      "vraag": "Welk hormoon zorgt ervoor dat je slaperig wordt?",
+      "opties": ["Melatonine", "Adrenaline", "Insuline"],
+      "correct": "Melatonine",
+      "uitleg": "Als het donker wordt, maakt je brein melatonine aan – dat maakt je slaperig."
+    },
+    {
+      "vraag": "Wat is een droom?",
+      "opties": ["Beelden en verhalen die je brein maakt tijdens het slapen", "Een soort film die je ogen zien", "Gedachten die je overdag hebt"],
+      "correct": "Beelden en verhalen die je brein maakt tijdens het slapen",
+      "uitleg": "Dromen zijn beelden en verhalen die je hersenen maken terwijl jij slaapt, vooral in de REM-slaapfase."
+    },
+    {
+      "vraag": "Wat kun jij doen om beter te slapen?",
+      "opties": ["Op tijd naar bed gaan en schermen vermijden", "Tot laat opblijven en veel suiker eten", "Overdag zo veel mogelijk slapen"],
+      "correct": "Op tijd naar bed gaan en schermen vermijden",
+      "uitleg": "Een vaste bedtijd en geen schermen vlak voor het slapen helpen je om beter en dieper te slapen."
+    }
+  ]
+}

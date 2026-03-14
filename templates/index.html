@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BegrijpendTuben 🎬✨</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;800&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+  <!-- ══════════════════════════════════════════
+       HEADER – met persistente sterren-score
+  ══════════════════════════════════════════ -->
+  <header class="app-header">
+    <div class="header-inner">
+      <span class="logo-emoji">🎬</span>
+      <h1 class="logo-tekst">BegrijpendTuben</h1>
+      <span class="logo-emoji">✨</span>
+    </div>
+    <p class="tagline">Kijk een filmpje en laat zien wat jij hebt geleerd!</p>
+    <!-- Sterren-teller: zichtbaar nadat de eerste quiz gespeeld is -->
+    <div class="sterren-balk" id="sterrenBalk" style="display:none;">
+      <span class="sterren-label">Jouw sterren:</span>
+      <span class="sterren-waarde" id="sterrenWaarde">⭐ 0</span>
+      <span class="sterren-label">· Totaal goed:</span>
+      <span class="sterren-waarde" id="totaalGoed">0 / 0</span>
+    </div>
+  </header>
+
+  <!-- ══════════════════════════════════════════
+       STAP-INDICATOR
+  ══════════════════════════════════════════ -->
+  <div class="stap-balk" id="stapBalk">
+    <div class="stap actief" id="stap1Dot" data-stap="1">
+      <span class="stap-getal">1</span>
+      <span class="stap-label">Kies een filmpje</span>
+    </div>
+    <div class="stap-lijn"></div>
+    <div class="stap" id="stap2Dot" data-stap="2">
+      <span class="stap-getal">2</span>
+      <span class="stap-label">Bekijk het filmpje</span>
+    </div>
+    <div class="stap-lijn"></div>
+    <div class="stap" id="stap3Dot" data-stap="3">
+      <span class="stap-getal">3</span>
+      <span class="stap-label">Beantwoord vragen</span>
+    </div>
+    <div class="stap-lijn"></div>
+    <div class="stap" id="stap4Dot" data-stap="4">
+      <span class="stap-getal">4</span>
+      <span class="stap-label">Bekijk je score</span>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SCHERM 1 – VIDEO KIEZEN
+  ══════════════════════════════════════════ -->
+  <section class="scherm actief" id="schermKiezen">
+
+    <div class="kaart intro-kaart">
+      <h2>Hoi! Welk filmpje wil jij bekijken? 🌟</h2>
+      <p>Zoek een filmpje op trefwoord of kies een categorie!</p>
+    </div>
+
+    <!-- Zoekbalk -->
+    <div class="kaart zoek-kaart">
+      <h3>🔍 Zoek een filmpje</h3>
+      <div class="invoer-rij">
+        <input
+          type="text"
+          id="zoekInvoer"
+          class="tekst-invoer"
+          placeholder="Bijv. vlinder, ruimte, dieren..."
+          aria-label="Zoek een filmpje"
+        />
+        <button class="knop knop-primair" onclick="App.zoek()">
+          Zoeken
+        </button>
+      </div>
+
+      <!-- Categorie-tabs -->
+      <div class="categorie-tabs" id="categorieTabs">
+        <button class="cat-tab actief" data-cat="" onclick="App.filterCategorie(this, '')">Alles</button>
+        <button class="cat-tab" data-cat="Natuur" onclick="App.filterCategorie(this, 'Natuur')">🌿 Natuur</button>
+        <button class="cat-tab" data-cat="Wetenschap" onclick="App.filterCategorie(this, 'Wetenschap')">🔬 Wetenschap</button>
+        <button class="cat-tab" data-cat="Ruimte" onclick="App.filterCategorie(this, 'Ruimte')">🚀 Ruimte</button>
+        <button class="cat-tab" data-cat="Dieren" onclick="App.filterCategorie(this, 'Dieren')">🐾 Dieren</button>
+        <button class="cat-tab" data-cat="Geschiedenis" onclick="App.filterCategorie(this, 'Geschiedenis')">🏛️ Geschiedenis</button>
+      </div>
+    </div>
+
+    <!-- Video-grid -->
+    <div class="kaart">
+      <h3 id="videoGridTitel">🎥 Alle filmpjes</h3>
+      <div class="video-grid" id="videoGrid">
+        <div class="laad-spinner">
+          <span class="spinner-cirkel"></span>
+          <p>Filmpjes laden...</p>
+        </div>
+      </div>
+      <p class="geen-resultaten" id="geenResultaten" style="display:none;">
+        😕 Geen filmpjes gevonden. Probeer een ander zoekwoord!
+      </p>
+    </div>
+
+  </section>
+
+  <!-- ══════════════════════════════════════════
+       SCHERM 2 – VIDEO AFSPELEN
+  ══════════════════════════════════════════ -->
+  <section class="scherm" id="schermVideo">
+
+    <!-- Back-knop prominent bovenaan -->
+    <button class="knop knop-terug" onclick="App.toonScherm('schermKiezen')">
+      ← Ander filmpje kiezen
+    </button>
+
+    <div class="kaart">
+      <h2 id="videoTitel">Filmpje 🎬</h2>
+      <p id="videoBeschrijving" class="video-beschrijving"></p>
+    </div>
+
+    <div class="kaart video-kaart">
+      <div class="video-wrapper">
+        <iframe
+          id="youtubePlayer"
+          src=""
+          title="YouTube video"
+          frameborder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowfullscreen
+        ></iframe>
+      </div>
+    </div>
+
+    <div class="kaart klaar-kaart">
+      <p class="klaar-tekst">
+        🎓 Als je klaar bent met kijken, klik dan op de knop!
+      </p>
+      <button class="knop knop-groot knop-groen" id="btnKlaarMetKijken" onclick="App.startQuiz()">
+        ✅ Ik ben klaar! Start de vragen →
+      </button>
+    </div>
+
+  </section>
+
+  <!-- ══════════════════════════════════════════
+       SCHERM 3 – QUIZ
+  ══════════════════════════════════════════ -->
+  <section class="scherm" id="schermQuiz">
+
+    <!-- Stop-knop bovenaan -->
+    <button class="knop knop-terug knop-terug-rood" onclick="App.stopQuiz()">
+      ✕ Stop quiz
+    </button>
+
+    <!-- Voortgangsbalk -->
+    <div class="kaart voortgang-kaart">
+      <div class="voortgang-header">
+        <span id="vraagTeller">Vraag 1 van 5</span>
+        <span id="scoreTeller">⭐ Score: 0</span>
+      </div>
+      <div class="voortgang-balk">
+        <div class="voortgang-vulling" id="voortgangVulling"></div>
+      </div>
+    </div>
+
+    <!-- Vraagkaart -->
+    <div class="kaart vraag-kaart" id="vraagKaart">
+      <div class="vraag-nummer" id="vraagNummer">Vraag 1</div>
+      <h2 class="vraag-tekst" id="vraagTekst">Loading...</h2>
+      <div class="antwoord-grid" id="antwoordGrid"></div>
+
+      <!-- Feedback na antwoord -->
+      <div class="feedback-blok" id="feedbackBlok" style="display:none;">
+        <div class="feedback-emoji" id="feedbackEmoji"></div>
+        <div class="feedback-bericht" id="feedbackBericht"></div>
+        <div class="feedback-uitleg" id="feedbackUitleg"></div>
+        <button class="knop knop-groot knop-paars" id="btnVolgende" onclick="App.volgendeVraag()">
+          Volgende vraag →
+        </button>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ══════════════════════════════════════════
+       SCHERM 4 – RESULTAAT
+  ══════════════════════════════════════════ -->
+  <section class="scherm" id="schermResultaat">
+
+    <div class="confetti-container" id="confettiContainer"></div>
+
+    <div class="kaart resultaat-kaart">
+      <div class="resultaat-trophy" id="resultaatTrophy">🏆</div>
+      <h2 class="resultaat-titel" id="resultaatTitel">Super gedaan!</h2>
+
+      <!-- Sessie-score -->
+      <div class="score-cirkel">
+        <span class="score-groot" id="scoreGroot">0</span>
+        <span class="score-max" id="scoreMax">/ 5</span>
+      </div>
+      <p class="score-bericht" id="scoreBericht">Je hebt alle vragen goed!</p>
+
+      <!-- Sterren verdiend deze sessie -->
+      <div class="sterren-sessie" id="sterrenSessie"></div>
+
+      <!-- Totaalscore over alle sessies -->
+      <div class="totaal-kaart" id="totaalKaart">
+        <p class="totaal-label">Jouw totale sterren:</p>
+        <p class="totaal-sterren" id="totaalSterren">⭐ 0 sterren</p>
+        <p class="totaal-sub" id="totaalSub">Je hebt al 0 vragen goed beantwoord!</p>
+      </div>
+
+      <!-- Antwoord-overzicht -->
+      <div class="antwoord-overzicht" id="antwoordOverzicht"></div>
+
+      <!-- Knoppen -->
+      <div class="resultaat-knoppen">
+        <button class="knop knop-groot knop-groen" onclick="App.opnieuwDezelfde()">
+          🔄 Dezelfde vragen opnieuw
+        </button>
+        <button class="knop knop-groot knop-paars" onclick="App.toonScherm('schermKiezen')">
+          🎬 Nieuw filmpje kiezen
+        </button>
+      </div>
+
+      <!-- Reset-knop voor ouder/leerkracht -->
+      <button class="knop knop-klein knop-grijs" onclick="App.resetScore()" style="margin-top:16px;">
+        🗑️ Score resetten
+      </button>
+    </div>
+
+  </section>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

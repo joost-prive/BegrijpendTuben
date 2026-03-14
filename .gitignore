@@ -1,0 +1,11 @@
+# Geheime sleutels – NOOIT op GitHub!
+.env
+
+# Python virtual environment
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Claude Code lokale instellingen
+.claude/settings.local.json
