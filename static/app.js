@@ -144,10 +144,14 @@ const App = (() => {
       kaartje.tabIndex  = 0;
       kaartje.setAttribute('role', 'button');
       kaartje.setAttribute('aria-label', `Selecteer: ${video.titel}`);
+      const kanaalLabel = video.kanaal ? `<span class="video-kanaal-badge">${video.kanaal}</span>` : '';
       kaartje.innerHTML = `
         <div class="video-thumbnail-placeholder">${emoji}</div>
         <div class="video-info">
-          <span class="video-categorie-badge">${video.categorie}</span>
+          <div class="video-badges">
+            <span class="video-categorie-badge">${video.categorie}</span>
+            ${kanaalLabel}
+          </div>
           <div class="video-naam">${video.titel}</div>
           <div class="video-omschrijving">${video.beschrijving}</div>
         </div>`;

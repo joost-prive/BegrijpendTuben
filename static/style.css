@@ -318,6 +318,13 @@ body {
   padding: 12px;
 }
 
+.video-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
 .video-categorie-badge {
   display: inline-block;
   background: var(--geel-licht);
@@ -326,9 +333,19 @@ body {
   font-weight: 700;
   padding: 3px 8px;
   border-radius: 99px;
-  margin-bottom: 6px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+.video-kanaal-badge {
+  display: inline-block;
+  background: #ede9fe;
+  color: #5b21b6;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 99px;
+  letter-spacing: 0.3px;
 }
 
 .video-naam {
