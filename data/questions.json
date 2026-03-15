@@ -22,7 +22,7 @@
     }
   ],
 
-  "OHkiIzArqD8": [
+  "b79xio8qgiY": [
     {
       "vraag": "Hoeveel miljard zenuwcellen heeft ons brein ongeveer?",
       "opties": ["100 miljard", "10 miljard", "1 miljard"],
@@ -55,7 +55,7 @@
     }
   ],
 
-  "YbgnEHNgfNw": [
+  "V5RSpMQQOpw": [
     {
       "vraag": "Wat is de eerste fase in de levenscyclus van een vlinder?",
       "opties": ["Het ei", "De rups", "De pop"],
@@ -70,7 +70,7 @@
     },
     {
       "vraag": "Wat eet een rups het liefst?",
-      "opties": ["Bladeren", "Bloemblaadjes", "Ander insecten"],
+      "opties": ["Bladeren", "Bloemblaadjes", "Andere insecten"],
       "correct": "Bladeren",
       "uitleg": "Rupsen eten voornamelijk bladeren om te groeien en energie op te slaan."
     },
@@ -88,7 +88,7 @@
     }
   ],
 
-  "9RMHHwJ9Eqk": [
+  "K6dqHEoj-AU": [
     {
       "vraag": "Welke planeet is het grootst in ons zonnestelsel?",
       "opties": ["Jupiter", "Saturnus", "Neptunus"],
@@ -121,7 +121,7 @@
     }
   ],
 
-  "yqGNaVJ3Kkk": [
+  "tkFPyue5X3Q": [
     {
       "vraag": "Wat heeft een plant nodig om te groeien?",
       "opties": ["Water, licht en lucht", "Alleen water", "Alleen zonneschijn"],
@@ -145,10 +145,16 @@
       "opties": ["De wortels", "De bladeren", "De stengel"],
       "correct": "De wortels",
       "uitleg": "Wortels zuigen water en voedingsstoffen uit de grond op."
+    },
+    {
+      "vraag": "Wat zit er in een zaadje dat de plant laat groeien?",
+      "opties": ["Een klein embryo en voedsel", "Alleen water", "Zaden en bloemen"],
+      "correct": "Een klein embryo en voedsel",
+      "uitleg": "In een zaadje zit een klein plantje (embryo) met genoeg voedsel om te beginnen groeien."
     }
   ],
 
-  "Iwuy4hHO3YQ": [
+  "_aAmaCeq9v4": [
     {
       "vraag": "Hoeveel uur slaap heeft een kind van 8 jaar nodig?",
       "opties": ["9 tot 11 uur", "5 tot 6 uur", "7 tot 8 uur"],
