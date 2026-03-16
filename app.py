@@ -76,10 +76,34 @@ KANALEN = [
         "categorie":  "Nieuws",
         "emoji":      "📰",
     },
+    {
+        "naam":       "De Buitendienst",
+        "channel_id": "UCfShWs-d9Kx8zmiKULvog2g",
+        "categorie":  "Dieren",
+        "emoji":      "🐾",
+    },
+    {
+        "naam":       "Vroege Vogels",
+        "channel_id": "UCX8tlPIkOkeeRmtTweswP6w",
+        "categorie":  "Natuur",
+        "emoji":      "🌿",
+    },
+    {
+        "naam":       "Klaas Kan Alles",
+        "channel_id": "UCCaOWydWlVe6f1HJjtXc6xw",
+        "categorie":  "Ruimte",
+        "emoji":      "🚀",
+    },
+    {
+        "naam":       "Jort Kelder Geschiedenis",
+        "channel_id": "UCJZ5YSBIxTywVEtRmm0oJfQ",
+        "categorie":  "Geschiedenis",
+        "emoji":      "🏛️",
+    },
 ]
 
 ACTIEVE_VIDEOS_PAD = os.path.join(DATA_DIR, "active_videos.json")
-MAX_VIDEOS    = 20   # maximaal aantal actieve videos
+MAX_VIDEOS    = 60   # maximaal aantal actieve videos
 ROTATIE_BATCH = 5    # hoeveel videos per week worden vervangen
 ROTATIE_DAGEN = 7    # na hoeveel dagen wordt geroteerd
 
@@ -127,6 +151,7 @@ def _fetch_rss_videos(channel_id, naam, categorie, emoji, max_items=10):
                 "categorie":    categorie,
                 "kanaal":       naam,
                 "emoji":        emoji,
+                "thumbnail":    f"https://img.youtube.com/vi/{vid_el.text}/mqdefault.jpg",
                 "tags":         [naam.lower().replace(" ", ""), categorie.lower()],
                 "toegevoegd":   vandaag,   # datum waarop video in de app is gezet
             })
