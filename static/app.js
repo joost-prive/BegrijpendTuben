@@ -110,13 +110,17 @@ const App = (() => {
       kaartje.setAttribute('role', 'button');
       kaartje.setAttribute('aria-label', `Selecteer: ${video.titel}`);
       const kanaalLabel = video.kanaal ? `<span class="video-kanaal-badge">${video.kanaal}</span>` : '';
+      const duurLabel   = video.duur   ? `<span class="video-duur-badge">⏱ ${video.duur}</span>` : '';
       kaartje.innerHTML = `
-        <img class="video-thumbnail"
-             src="https://img.youtube.com/vi/${video.id}/mqdefault.jpg"
-             alt="${video.titel}"
-             loading="lazy"
-             onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-        <div class="video-thumbnail-placeholder" style="display:none">${emoji}</div>
+        <div class="video-thumbnail-wrapper">
+          <img class="video-thumbnail"
+               src="https://img.youtube.com/vi/${video.id}/mqdefault.jpg"
+               alt="${video.titel}"
+               loading="lazy"
+               onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+          <div class="video-thumbnail-placeholder" style="display:none">${emoji}</div>
+          ${duurLabel ? `<div class="video-duur-overlay">${duurLabel}</div>` : ''}
+        </div>
         <div class="video-info">
           <div class="video-badges">
             <span class="video-categorie-badge">${video.categorie}</span>

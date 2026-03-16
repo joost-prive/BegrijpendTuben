@@ -13,7 +13,9 @@
 
 import json
 import os
+import re
 import sys
+import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
@@ -43,8 +45,10 @@ def _laad_env():
 
 _laad_env()
 
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
-USE_AI         = os.environ.get("USE_AI", "false").lower() == "true"
+OPENAI_API_KEY   = os.environ.get("OPENAI_API_KEY", "")
+USE_AI           = os.environ.get("USE_AI", "false").lower() == "true"
+YOUTUBE_API_KEY  = os.environ.get("YOUTUBE_API_KEY", "")
+MAX_DUUR_SEC     = 240   # maximale filmpjesduur in seconden (4 minuten)
 
 # ── OpenAI client (alleen aanmaken als USE_AI=true) ────────
 _openai_client = None
@@ -106,6 +110,72 @@ ACTIEVE_VIDEOS_PAD = os.path.join(DATA_DIR, "active_videos.json")
 MAX_VIDEOS    = 60   # maximaal aantal actieve videos
 ROTATIE_BATCH = 5    # hoeveel videos per week worden vervangen
 ROTATIE_DAGEN = 7    # na hoeveel dagen wordt geroteerd
+
+
+def _parse_iso_duur(iso: str) -> int | None:
+    """Zet ISO 8601-duur (PT4M30S) om naar seconden."""
+    m = re.match(r'PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?', iso or '')
+    if not m:
+        return None
+    return int(m.group(1) or 0) * 3600 + int(m.group(2) or 0) * 60 + int(m.group(3) or 0)
+
+
+def _format_duur(seconden: int) -> str:
+    """Formatteert seconden als 'M:SS'."""
+    return f"{seconden // 60}:{seconden % 60:02d}"
+
+
+def _haal_duuren_via_api(video_ids: list) -> dict:
+    """
+    Vraagt duur op via YouTube Data API v3.
+    Geeft dict {video_id: seconden} terug.
+    Vereist YOUTUBE_API_KEY.
+    """
+    duuren = {}
+    for i in range(0, len(video_ids), 50):
+        batch = video_ids[i:i + 50]
+        params = urllib.parse.urlencode({
+            'part': 'contentDetails',
+            'id':   ','.join(batch),
+            'key':  YOUTUBE_API_KEY,
+        })
+        url = f"https://www.googleapis.com/youtube/v3/videos?{params}"
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "BegrijpendTuben/1.0"})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read())
+            for item in data.get('items', []):
+                sec = _parse_iso_duur(item['contentDetails']['duration'])
+                if sec is not None:
+                    duuren[item['id']] = sec
+        except Exception as e:
+            print(f"⚠️  YouTube API fout: {e}")
+    return duuren
+
+
+def _filter_op_duur(videos: list) -> list:
+    """
+    Voegt duur toe aan elk video-object en filtert alles > MAX_DUUR_SEC weg.
+    Vereist YOUTUBE_API_KEY. Zonder sleutel worden alle videos teruggegeven
+    zonder duurinformatie.
+    """
+    if not YOUTUBE_API_KEY:
+        return videos
+
+    video_ids = [v["id"] for v in videos]
+    duuren    = _haal_duuren_via_api(video_ids)
+
+    gefilterd = []
+    for v in videos:
+        sec = duuren.get(v["id"])
+        if sec is None or sec <= MAX_DUUR_SEC:
+            v["duur"] = _format_duur(sec) if sec else None
+            gefilterd.append(v)
+
+    verwijderd = len(videos) - len(gefilterd)
+    if verwijderd:
+        print(f"⏱️  {verwijderd} video(s) gefilterd (langer dan {MAX_DUUR_SEC // 60} min)")
+    return gefilterd
 
 
 def _fetch_rss_videos(channel_id, naam, categorie, emoji, max_items=10):
@@ -206,6 +276,7 @@ def _haal_en_roteer_videos():
                                   k["categorie"], k["emoji"])
             )
         if alle:
+            alle = _filter_op_duur(alle)
             actieve = alle[:MAX_VIDEOS]
             _sla_actieve_videos_op(actieve)
             print(f"✅ {len(actieve)} videos geladen uit RSS")
@@ -235,6 +306,7 @@ def _haal_en_roteer_videos():
                               k["categorie"], k["emoji"], max_items=15)
         )
 
+    alle_nieuw = _filter_op_duur(alle_nieuw)
     te_voegen = [v for v in alle_nieuw
                  if v["id"] not in bestaande_ids][:ROTATIE_BATCH]
     actieve.extend(te_voegen)
