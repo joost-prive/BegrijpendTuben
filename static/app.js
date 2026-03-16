@@ -18,8 +18,8 @@ const App = (() => {
     score:           0,
     antwoorden:      [],
     beantwoord:      false,
-    huidigCategorie: '',     // actief categoriefilter
-    huidigZoekterm:  '',     // actieve zoekterm
+    huidigKanaal:    '',     // actief kanaalfilter
+    alleVideos:      [],     // alle geladen video's
   };
 
   const LETTERS = ['A', 'B', 'C', 'D'];
@@ -72,57 +72,22 @@ const App = (() => {
   document.addEventListener('DOMContentLoaded', () => {
     _laadAlleVideos();
     _updateHeaderScore();
-
-    // Enter in zoekbalk
-    document.getElementById('zoekInvoer').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') zoek();
-    });
   });
 
   // ── Video laden en weergeven ───────────────────────────────
 
-  /** Laadt alle video's (geen filter) bij start. */
+  /** Laadt alle video's bij start en slaat ze op in staat. */
   async function _laadAlleVideos() {
     const grid = document.getElementById('videoGrid');
     try {
       const res = await fetch('/api/videos');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const videos = await res.json();
-      _renderVideoGrid(videos);
+      staat.alleVideos = await res.json();
+      _renderVideoGrid(staat.alleVideos);
     } catch (err) {
       grid.innerHTML = `<div class="laad-spinner" style="color:#ef4444;">
         <p>⚠️ Kon de filmpjeslijst niet laden. Is de server actief?</p></div>`;
     }
-  }
-
-  /** Zoekt via /api/search met huidige zoekterm + categorie. */
-  async function _zoekVideos(zoekterm, categorie) {
-    const grid = document.getElementById('videoGrid');
-    grid.innerHTML = `<div class="laad-spinner"><span class="spinner-cirkel"></span><p>Zoeken...</p></div>`;
-
-    try {
-      const params = new URLSearchParams();
-      if (zoekterm)  params.set('q', zoekterm);
-      if (categorie) params.set('categorie', categorie);
-      const res = await fetch(`/api/search?${params}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const videos = await res.json();
-
-      // Pas de titel aan
-      const titel = zoekterm
-        ? `🔍 Resultaten voor "${zoekterm}"`
-        : categorie ? `${_catEmoji(categorie)} ${categorie}` : '🎥 Alle filmpjes';
-      document.getElementById('videoGridTitel').textContent = titel;
-
-      _renderVideoGrid(videos);
-    } catch (err) {
-      grid.innerHTML = `<div class="laad-spinner" style="color:#ef4444;">
-        <p>⚠️ Zoeken mislukt. Probeer opnieuw.</p></div>`;
-    }
-  }
-
-  function _catEmoji(cat) {
-    return { Natuur:'🌿', Wetenschap:'🔬', Ruimte:'🚀', Dieren:'🐾', Geschiedenis:'🏛️' }[cat] || '🎬';
   }
 
   function _renderVideoGrid(videos) {
@@ -167,27 +132,25 @@ const App = (() => {
     });
   }
 
-  // ── Publieke zoek-functies ─────────────────────────────────
+  // ── Kanaal-filter ──────────────────────────────────────────
 
-  /** Wordt aangeroepen door de zoek-knop en Enter. */
-  function zoek() {
-    staat.huidigZoekterm = document.getElementById('zoekInvoer').value.trim();
-    _zoekVideos(staat.huidigZoekterm, staat.huidigCategorie);
-  }
-
-  /** Wordt aangeroepen door de categorie-tabs. */
-  function filterCategorie(knop, categorie) {
-    staat.huidigCategorie = categorie;
+  /** Wordt aangeroepen door de kanaal-tabs. */
+  function filterKanaal(knop, kanaal) {
+    staat.huidigKanaal = kanaal;
 
     // Actieve tab bijwerken
     document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('actief'));
     knop.classList.add('actief');
 
-    // Zoekterm leeggooien bij categoriewissel (intuïtiever voor kind)
-    staat.huidigZoekterm = '';
-    document.getElementById('zoekInvoer').value = '';
+    // Client-side filteren (geen extra fetch nodig)
+    const gefilterd = kanaal
+      ? staat.alleVideos.filter(v => v.kanaal === kanaal)
+      : staat.alleVideos;
 
-    _zoekVideos('', categorie);
+    const titel = kanaal ? `📺 ${kanaal}` : '🎥 Alle filmpjes';
+    document.getElementById('videoGridTitel').textContent = titel;
+
+    _renderVideoGrid(gefilterd);
   }
 
   // ── Video kiezen & afspelen ────────────────────────────────
@@ -483,6 +446,6 @@ const App = (() => {
   }
 
   // ── Publieke interface ─────────────────────────────────────
-  return { zoek, filterCategorie, startQuiz, stopQuiz, volgendeVraag, opnieuwDezelfde, resetScore, toonScherm };
+  return { filterKanaal, startQuiz, stopQuiz, volgendeVraag, opnieuwDezelfde, resetScore, toonScherm };
 
 })();
