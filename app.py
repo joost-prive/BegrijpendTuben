@@ -106,7 +106,8 @@ KANALEN = [
     },
 ]
 
-ACTIEVE_VIDEOS_PAD = os.path.join(DATA_DIR, "active_videos.json")
+ACTIEVE_VIDEOS_PAD  = os.path.join(DATA_DIR, "active_videos.json")
+VRAGEN_CACHE_PAD    = os.path.join(DATA_DIR, "questions_cache.json")
 MAX_VIDEOS    = 60   # maximaal aantal actieve videos
 ROTATIE_BATCH = 5    # hoeveel videos per week worden vervangen
 ROTATIE_DAGEN = 7    # na hoeveel dagen wordt geroteerd
@@ -317,6 +318,36 @@ def _haal_en_roteer_videos():
 
 
 # ══════════════════════════════════════════════════════════
+#  Vraag-cache (gedeeld over alle spelers, persistente JSON)
+# ══════════════════════════════════════════════════════════
+
+def _laad_vragen_cache() -> dict:
+    """Laad gecachede vragen uit bestand. Geeft lege dict bij ontbreken/fout."""
+    try:
+        if os.path.exists(VRAGEN_CACHE_PAD):
+            with open(VRAGEN_CACHE_PAD, encoding="utf-8") as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return {}
+
+
+def _sla_vragen_cache_op(cache: dict) -> None:
+    """Schrijf de vragencache naar bestand."""
+    try:
+        os.makedirs(DATA_DIR, exist_ok=True)
+        with open(VRAGEN_CACHE_PAD, "w", encoding="utf-8") as f:
+            json.dump(cache, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"⚠️  Kon vragencache niet opslaan: {e}")
+
+
+# In-memory cache: eenmalig laden bij opstart
+_vragen_cache = _laad_vragen_cache()
+print(f"💾 Vragencache geladen: {len(_vragen_cache)} video('s) gecached")
+
+
+# ══════════════════════════════════════════════════════════
 #  Vraag-systeem
 # ══════════════════════════════════════════════════════════
 
@@ -332,11 +363,25 @@ def _laad_dummy_vragen(video_id: str) -> list:
 
 def _genereer_vragen_met_ai(video_id: str, video_titel: str, video_beschrijving: str) -> list:
     """Vraagt ChatGPT om 5 meerkeuze-vragen te maken over de video."""
+    heeft_inhoud = len(video_beschrijving.strip()) > 80
+
+    inhoud_richtlijn = (
+        "FOCUS ALLEEN op inhoudelijke vragen: wat wordt er uitgelegd, "
+        "welke feiten komen voor, hoe werkt iets dat getoond wordt, "
+        "welk begrip wordt uitgelegd. "
+        "VERMIJD vragen over doelgroep, leeftijdsgeschiktheid, het YouTube-kanaal of de maker."
+        if heeft_inhoud else
+        "Stel vragen op basis van wat je kunt afleiden uit de titel en beschrijving. "
+        "Je mag maximaal 1 vraag stellen over voor wie het filmpje bedoeld is."
+    )
+
     prompt = f"""Je bent een leuke, kindvriendelijke leraar voor kinderen van 8 jaar.
 
-Er is net een YouTube-filmpje bekeken met de volgende informatie:
+Er is net een YouTube-filmpje bekeken:
 - Titel: {video_titel}
 - Beschrijving: {video_beschrijving}
+
+{inhoud_richtlijn}
 
 Maak precies 5 meerkeuze-vragen over dit filmpje, passend voor een kind van 8 jaar.
 Gebruik eenvoudige, duidelijke taal.
@@ -380,10 +425,26 @@ Regels:
 
 
 def laad_vragen(video_id: str, video_titel: str = "", video_beschrijving: str = "") -> list:
-    """Geeft vragen terug (AI of dummy, afhankelijk van USE_AI)."""
+    """
+    Geeft vragen terug (AI of dummy, afhankelijk van USE_AI).
+    Bij AI-modus: resultaat wordt gecached per video_id zodat iedere
+    volgende speler de vragen meteen krijgt zonder nieuwe API-aanroep.
+    """
+    global _vragen_cache
+
+    # ── Controleer cache eerst ────────────────────────────
+    if video_id in _vragen_cache:
+        print(f"💾 Vragen voor '{video_id}' uit cache (geen API-call nodig)")
+        return _vragen_cache[video_id]
+
     if USE_AI and _openai_client:
         try:
-            return _genereer_vragen_met_ai(video_id, video_titel, video_beschrijving)
+            vragen = _genereer_vragen_met_ai(video_id, video_titel, video_beschrijving)
+            # Sla op in cache voor alle volgende spelers
+            _vragen_cache[video_id] = vragen
+            _sla_vragen_cache_op(_vragen_cache)
+            print(f"✅ Vragen voor '{video_id}' gegenereerd en gecached")
+            return vragen
         except Exception as fout:
             print(f"⚠️  OpenAI-fout, val terug op dummy-vragen: {fout}")
             return _laad_dummy_vragen(video_id)

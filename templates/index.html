@@ -7,8 +7,44 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;800&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/static/style.css" />
+
+  <!-- ══════════════════════════════════════════
+       FIREBASE (optioneel – voor score-sync)
+       Stap 1: Maak een project op https://console.firebase.google.com
+       Stap 2: Schakel Firestore én Anonieme authenticatie in
+       Stap 3: Plak je web-app configuratie hieronder (vervang null)
+  ══════════════════════════════════════════ -->
+  <script type="module">
+    const firebaseConfig = {
+      apiKey: "AIzaSyATs0NiHUL_4WKeQRasKIKyVlacT-E4bRk",
+      authDomain: "begrijpendtuben.firebaseapp.com",
+      projectId: "begrijpendtuben",
+      storageBucket: "begrijpendtuben.firebasestorage.app",
+      messagingSenderId: "516169280195",
+      appId: "1:516169280195:web:11b183dc3a37d8f7f31076"
+    };
+
+    const [{ initializeApp }, { getFirestore, doc, setDoc, getDoc, serverTimestamp }, { getAuth, signInAnonymously }] =
+      await Promise.all([
+        import("https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"),
+        import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"),
+        import("https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js"),
+      ]);
+
+    const fbApp = initializeApp(firebaseConfig);
+    window.db   = getFirestore(fbApp);
+    window.auth = getAuth(fbApp);
+    window.firebaseFuncs = { doc, setDoc, getDoc, serverTimestamp };
+
+    signInAnonymously(window.auth)
+      .then(u => {
+        window.fbUid = u.user.uid;
+        document.dispatchEvent(new CustomEvent('firebase-ready'));
+      })
+      .catch(e => console.warn('Firebase auth fout:', e));
+  </script>
 </head>
-<body>
+<body data-thema="lief">
 
   <!-- ══════════════════════════════════════════
        HEADER – met persistente sterren-score
@@ -20,6 +56,11 @@
       <span class="logo-emoji">✨</span>
     </div>
     <p class="tagline">Kijk een filmpje en laat zien wat jij hebt geleerd!</p>
+    <!-- Speler-naam: zichtbaar nadat naam is ingevoerd -->
+    <div class="speler-balk" id="spelerBalk" style="display:none;">
+      <span id="spelerNaamTekst">👤</span>
+      <button class="speler-wissel-knop" onclick="App.wisselSpeler()">↔ andere speler</button>
+    </div>
     <!-- Sterren-teller: zichtbaar nadat de eerste quiz gespeeld is -->
     <div class="sterren-balk" id="sterrenBalk" style="display:none;">
       <span class="sterren-label">Jouw sterren:</span>
@@ -220,6 +261,50 @@
     </div>
 
   </section>
+
+  <!-- ══════════════════════════════════════════
+       NAAM-MODAL – getoond bij eerste bezoek
+  ══════════════════════════════════════════ -->
+  <div class="modal-overlay" id="naamModal" style="display:none;">
+    <div class="modal-kaart">
+      <span class="modal-emoji">🎬</span>
+      <h2 class="modal-titel">Hoi! Wat is jouw naam?</h2>
+      <p class="modal-sub">Zo houden we jouw score bij!</p>
+
+      <input type="text"
+             id="naamInvoer"
+             class="naam-invoer"
+             placeholder="Jouw naam..."
+             maxlength="20"
+             autocomplete="off" />
+
+      <div class="thema-kiezer">
+        <p class="thema-label">Kies jouw thema</p>
+        <div class="thema-opties">
+          <button class="thema-knop actief" data-thema="lief" onclick="App.kiesThema(this)">
+            <span class="thema-kleur" style="background: linear-gradient(135deg, #7c3aed, #ec4899)"></span>
+            🌸 Lief
+          </button>
+          <button class="thema-knop" data-thema="stoer" onclick="App.kiesThema(this)">
+            <span class="thema-kleur" style="background: linear-gradient(135deg, #0369a1, #16a34a)"></span>
+            ⚡ Stoer
+          </button>
+          <button class="thema-knop" data-thema="magisch" onclick="App.kiesThema(this)">
+            <span class="thema-kleur" style="background: linear-gradient(135deg, #9333ea, #c026d3)"></span>
+            ✨ Magisch
+          </button>
+          <button class="thema-knop" data-thema="vrolijk" onclick="App.kiesThema(this)">
+            <span class="thema-kleur" style="background: linear-gradient(135deg, #d97706, #f97316)"></span>
+            🌈 Vrolijk
+          </button>
+        </div>
+      </div>
+
+      <button class="knop knop-groot knop-groen" onclick="App.bevestigNaam()">
+        🚀 Start met spelen!
+      </button>
+    </div>
+  </div>
 
   <script src="/static/app.js"></script>
 </body>

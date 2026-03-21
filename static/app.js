@@ -25,8 +25,18 @@ const App = (() => {
   const LETTERS = ['A', 'B', 'C', 'D'];
   const CONFETTI_KLEUREN = ['#7c3aed','#ec4899','#fbbf24','#10b981','#f87171','#60a5fa'];
 
-  // ── localStorage sleutel ───────────────────────────────────
-  const SCORE_SLEUTEL = 'begrijpendtuben_score';
+  // ── localStorage sleutels ──────────────────────────────────
+  const SCORE_SLEUTEL  = 'begrijpendtuben_score';
+  const SPELER_SLEUTEL = 'begrijpendtuben_speler';
+
+  // ── Actieve speler ─────────────────────────────────────────
+  let _speler = null; // { naam, thema }
+
+  // ── Categorie-emoji fallback ───────────────────────────────
+  function _catEmoji(cat) {
+    const map = { Wetenschap:'🔬', Nieuws:'📰', Dieren:'🐾', Natuur:'🌿', Ruimte:'🚀', Geschiedenis:'🏛️' };
+    return map[cat] || '🎬';
+  }
 
   // ── Persistente score lezen/schrijven ──────────────────────
 
@@ -68,10 +78,140 @@ const App = (() => {
     }
   }
 
+  // ── Speler: lezen / opslaan ────────────────────────────────
+
+  function _laadSpeler() {
+    try { return JSON.parse(localStorage.getItem(SPELER_SLEUTEL)) || null; }
+    catch { return null; }
+  }
+
+  function _slaSpelerOp(data) {
+    localStorage.setItem(SPELER_SLEUTEL, JSON.stringify(data));
+    _speler = data;
+  }
+
+  // ── Thema toepassen ───────────────────────────────────────
+
+  function _pasThemaToe(thema) {
+    document.body.setAttribute('data-thema', thema || 'lief');
+  }
+
+  /** Wordt aangeroepen door de thema-knoppen in de modal. */
+  function kiesThema(knop) {
+    document.querySelectorAll('.thema-knop').forEach(b => b.classList.remove('actief'));
+    knop.classList.add('actief');
+  }
+
+  // ── Naam-modal ────────────────────────────────────────────
+
+  /** Bevestig naam + thema en sluit de modal. */
+  function bevestigNaam() {
+    const invoer = document.getElementById('naamInvoer');
+    const naam = invoer.value.trim();
+    if (!naam) {
+      invoer.focus();
+      invoer.style.borderColor = '#ef4444';
+      setTimeout(() => { invoer.style.borderColor = ''; }, 1200);
+      return;
+    }
+    const actieveKnop = document.querySelector('.thema-knop.actief');
+    const thema = actieveKnop ? actieveKnop.dataset.thema : 'lief';
+
+    _slaSpelerOp({ naam, thema });
+    _pasThemaToe(thema);
+    _toonSpelerBalk(naam);
+    document.getElementById('naamModal').style.display = 'none';
+    _syncFirebase();
+  }
+
+  /** Toont de naam-modal opnieuw (andere speler). */
+  function wisselSpeler() {
+    const speler = _laadSpeler();
+    document.getElementById('naamInvoer').value = speler ? speler.naam : '';
+    const huidigThema = speler ? speler.thema : 'lief';
+    document.querySelectorAll('.thema-knop').forEach(b => {
+      b.classList.toggle('actief', b.dataset.thema === huidigThema);
+    });
+    document.getElementById('naamModal').style.display = 'flex';
+  }
+
+  function _toonSpelerBalk(naam) {
+    document.getElementById('spelerNaamTekst').textContent = `👤 ${naam}`;
+    document.getElementById('spelerBalk').style.display = 'flex';
+  }
+
+  // ── Firebase score-sync ───────────────────────────────────
+
+  async function _syncFirebase() {
+    if (!window.db || !window.fbUid || !_speler) return;
+    const { doc, setDoc, serverTimestamp } = window.firebaseFuncs;
+    const score = _laadScore();
+    try {
+      await setDoc(doc(window.db, 'spelers', window.fbUid), {
+        naam:            _speler.naam,
+        thema:           _speler.thema,
+        sterren:         score.sterren,
+        totaalJuist:     score.totaalJuist,
+        totaalVragen:    score.totaalVragen,
+        sessiesGespeeld: score.sessiesGespeeld,
+        bijgewerkt:      serverTimestamp(),
+      }, { merge: true });
+    } catch (e) {
+      console.warn('Firebase sync fout:', e);
+    }
+  }
+
+  async function _laadScoreVanFirebase() {
+    if (!window.db || !window.fbUid) return;
+    const { doc, getDoc } = window.firebaseFuncs;
+    try {
+      const snap = await getDoc(doc(window.db, 'spelers', window.fbUid));
+      if (snap.exists()) {
+        const data = snap.data();
+        _slaScore({
+          sterren:         data.sterren         || 0,
+          totaalJuist:     data.totaalJuist     || 0,
+          totaalVragen:    data.totaalVragen    || 0,
+          sessiesGespeeld: data.sessiesGespeeld || 0,
+          besteScore:      data.besteScore      || 0,
+        });
+        _updateHeaderScore();
+        // Naam/thema herstellen als localStorage leeg is
+        if (data.naam && !_laadSpeler()) {
+          _slaSpelerOp({ naam: data.naam, thema: data.thema || 'lief' });
+          _pasThemaToe(data.thema || 'lief');
+          _toonSpelerBalk(data.naam);
+          document.getElementById('naamModal').style.display = 'none';
+        }
+      }
+    } catch (e) {
+      console.warn('Firebase laad fout:', e);
+    }
+  }
+
   // ── Initialisatie ──────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', () => {
     _laadAlleVideos();
     _updateHeaderScore();
+
+    // Enter-toets in naam-invoer
+    document.getElementById('naamInvoer').addEventListener('keydown', e => {
+      if (e.key === 'Enter') bevestigNaam();
+    });
+
+    const speler = _laadSpeler();
+    if (speler) {
+      _speler = speler;
+      _pasThemaToe(speler.thema);
+      _toonSpelerBalk(speler.naam);
+    } else {
+      document.getElementById('naamModal').style.display = 'flex';
+    }
+  });
+
+  // Firebase-ready: laad score uit de cloud
+  document.addEventListener('firebase-ready', () => {
+    _laadScoreVanFirebase();
   });
 
   // ── Video laden en weergeven ───────────────────────────────
@@ -353,6 +493,7 @@ const App = (() => {
     totaalScore.besteScore      = Math.max(totaalScore.besteScore, Math.round(pct * 100));
     _slaScore(totaalScore);
     _updateHeaderScore();
+    _syncFirebase(); // async, fire-and-forget
 
     // Totaalscore tonen
     document.getElementById('totaalSterren').textContent = `⭐ ${totaalScore.sterren} sterren`;
@@ -450,6 +591,7 @@ const App = (() => {
   }
 
   // ── Publieke interface ─────────────────────────────────────
-  return { filterKanaal, startQuiz, stopQuiz, volgendeVraag, opnieuwDezelfde, resetScore, toonScherm };
+  return { filterKanaal, startQuiz, stopQuiz, volgendeVraag, opnieuwDezelfde, resetScore, toonScherm,
+           kiesThema, bevestigNaam, wisselSpeler };
 
 })();
