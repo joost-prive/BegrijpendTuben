@@ -112,16 +112,15 @@ KANALEN = [
         "emoji":      "🏛️",
     },
     {
-        # TODO: verifieer channel_id via youtube.com/@schooltvnl → paginabron → "channelId"
         "naam":       "Schooltv",
-        "channel_id": "UCy4OQSzqHEhFQq9mj3IU7pA",
+        "channel_id": "UCmyAAcFzmkD5SHIa0olqhgw",
         "categorie":  "Educatie",
         "emoji":      "📚",
     },
     {
-        # TODO: verifieer channel_id via het Clipphanger YouTube-kanaal
+        # TODO: controleer dit channel_id – lijkt identiek aan Schooltv, mogelijk kopieerfout
         "naam":       "Clipphanger",
-        "channel_id": "UCDfARYL8d3X6NV8K6xo6Qzw",
+        "channel_id": "UCmyAAcFzmkD5SHIa0olqhgw",
         "categorie":  "Wetenschap",
         "emoji":      "🎒",
     },
@@ -444,16 +443,13 @@ def _genereer_vragen_met_ai(video_id: str, video_titel: str, video_beschrijving:
     heeft_inhoud = len(video_beschrijving.strip()) > 80
 
     inhoud_richtlijn = (
-        "FOCUS ALLEEN op inhoudelijke vragen: wat wordt er uitgelegd, "
-        "welke feiten komen voor, hoe werkt iets dat getoond wordt, "
-        "welk begrip wordt uitgelegd. "
-        "VERMIJD vragen over doelgroep, leeftijdsgeschiktheid, het YouTube-kanaal of de maker."
+        "FOCUS UITSLUITEND op de inhoud van het filmpje: feiten die worden uitgelegd, "
+        "hoe iets werkt, welke begrippen voorkomen, wat er getoond of besproken wordt."
         if heeft_inhoud else
-        "Stel vragen op basis van wat je kunt afleiden uit de titel en beschrijving. "
-        "Je mag maximaal 1 vraag stellen over voor wie het filmpje bedoeld is."
+        "Stel vragen op basis van wat je kunt afleiden uit de titel en beschrijving."
     )
 
-    prompt = f"""Je bent een leuke, kindvriendelijke leraar voor kinderen van 8 jaar.
+    prompt = f"""Je bent een kindvriendelijke leraar voor kinderen van 8 jaar.
 
 Er is net een YouTube-filmpje bekeken:
 - Titel: {video_titel}
@@ -461,7 +457,16 @@ Er is net een YouTube-filmpje bekeken:
 
 {inhoud_richtlijn}
 
-Maak precies 5 meerkeuze-vragen over dit filmpje, passend voor een kind van 8 jaar.
+Maak precies 5 meerkeuze-vragen die toetsen of het kind de INHOUD van het filmpje heeft begrepen.
+
+VERBODEN vragen (sla deze categorieën volledig over):
+- Vragen over abonneren, liken, delen of andere YouTube-acties
+- Vragen over het YouTube-kanaal, de maker of de presentator
+- Vragen over de naam van het programma of de serie
+- Vragen over hoe oud het filmpje is of wanneer het gemaakt is
+- Vragen over of het filmpje leuk/interessant was
+- Vragen over de doelgroep of leeftijdsgeschiktheid
+
 Gebruik eenvoudige, duidelijke taal.
 
 Geef je antwoord ALLEEN als geldige JSON (geen extra tekst erbuiten), in dit exacte formaat:
