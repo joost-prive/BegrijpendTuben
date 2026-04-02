@@ -478,7 +478,7 @@ const App = (() => {
       toonScherm('schermQuiz');
       _toonVraag(0);
     } catch (err) {
-      alert('Oeps! Kon de vragen niet laden. Probeer het opnieuw.');
+      _popup('Oeps! Kon de vragen niet laden. Probeer het opnieuw.', { emoji: '⚠️' });
       console.error(err);
     } finally {
       knop.textContent = '✅ Ik ben klaar! Start de vragen →';
@@ -486,12 +486,60 @@ const App = (() => {
     }
   }
 
+  // ── Mooie popup (vervangt alert/confirm) ──────────────────
+
+  /**
+   * Toont een kindvriendelijke popup.
+   * @param {string} tekst - Bericht
+   * @param {object} opties - { emoji, type: 'melding'|'bevestig', okTekst, cancelTekst }
+   * @returns {Promise<boolean>} true = ok/ja, false = annuleer
+   */
+  function _popup(tekst, opties = {}) {
+    return new Promise(resolve => {
+      const overlay = document.getElementById('popupOverlay');
+      const emojiEl = document.getElementById('popupEmoji');
+      const tekstEl = document.getElementById('popupTekst');
+      const knoppen = document.getElementById('popupKnoppen');
+
+      emojiEl.textContent = opties.emoji || '💬';
+      tekstEl.textContent = tekst;
+      knoppen.innerHTML   = '';
+
+      const sluit = (val) => { overlay.style.display = 'none'; resolve(val); };
+
+      if (opties.type === 'bevestig') {
+        const nee = document.createElement('button');
+        nee.className   = 'knop knop-grijs';
+        nee.textContent = opties.cancelTekst || 'Nee, toch niet';
+        nee.onclick = () => sluit(false);
+
+        const ja = document.createElement('button');
+        ja.className   = 'knop knop-rood';
+        ja.textContent = opties.okTekst || 'Ja';
+        ja.onclick = () => sluit(true);
+
+        knoppen.appendChild(nee);
+        knoppen.appendChild(ja);
+      } else {
+        const ok = document.createElement('button');
+        ok.className   = 'knop knop-paars';
+        ok.textContent = opties.okTekst || 'OK 👍';
+        ok.onclick = () => sluit(true);
+        knoppen.appendChild(ok);
+      }
+
+      overlay.style.display = 'flex';
+    });
+  }
+
   // ── Quiz stoppen ───────────────────────────────────────────
 
-  function stopQuiz() {
-    if (confirm('Wil je de quiz stoppen en het filmpje opnieuw bekijken?')) {
-      toonScherm('schermVideo');
-    }
+  async function stopQuiz() {
+    const ok = await _popup(
+      'Wil je de quiz stoppen en het filmpje opnieuw bekijken?',
+      { emoji: '🎬', type: 'bevestig', okTekst: 'Ja, stop quiz' }
+    );
+    if (ok) toonScherm('schermVideo');
   }
 
   // ── Vraag weergeven ────────────────────────────────────────
@@ -636,7 +684,7 @@ const App = (() => {
     const mijlpalen = [10, 25, 50, 100];
     const geraakt   = mijlpalen.find(m => totaalScore.sterren >= m && totaalScore.sterren - sterrenSessie < m);
     if (geraakt) {
-      setTimeout(() => alert(`🎊 Wauw! Je hebt al ${geraakt} sterren verzameld! Super goed bezig!`), 600);
+      setTimeout(() => _popup(`Wauw! Je hebt al ${geraakt} sterren verzameld! Super goed bezig!`, { emoji: '🎊' }), 600);
     }
 
     document.getElementById('voortgangVulling').style.width = '100%';
@@ -667,16 +715,19 @@ const App = (() => {
 
   // ── Score resetten ─────────────────────────────────────────
 
-  function resetScore() {
-    if (confirm('Weet je zeker dat je alle sterren en punten wilt wissen?')) {
-      const idx = _spelers.findIndex(s => s.naam === _actieveNaam);
-      if (idx !== -1) {
-        _spelers[idx].score = _leegScore();
-        _slaSpelersOp();
-      }
-      _updateHeaderScore();
-      alert('Score gewist! Begin opnieuw met spelen.');
+  async function resetScore() {
+    const ok = await _popup(
+      'Weet je zeker dat je alle sterren en punten wilt wissen?',
+      { emoji: '🗑️', type: 'bevestig', okTekst: 'Ja, wis alles' }
+    );
+    if (!ok) return;
+    const idx = _spelers.findIndex(s => s.naam === _actieveNaam);
+    if (idx !== -1) {
+      _spelers[idx].score = _leegScore();
+      _slaSpelersOp();
     }
+    _updateHeaderScore();
+    _popup('Score gewist! Begin opnieuw met spelen.', { emoji: '✨' });
   }
 
   // ── Opnieuw dezelfde quiz ──────────────────────────────────

@@ -327,6 +327,7 @@ def _haal_en_roteer_videos():
 
     Logica:
     - Eerste keer (of leeg bestand): vul met RSS-videos.
+    - Nieuwe kanalen (nog geen videos in lijst): meteen ophalen.
     - Elke 7 dagen: vervang de 5 oudste door 5 nieuwe van de RSS-feeds.
     - Als RSS niet bereikbaar is: geef de bestaande lijst terug.
     - Bestaande videos zonder 'niveau' krijgen automatisch een classificatie.
@@ -341,6 +342,21 @@ def _haal_en_roteer_videos():
             v["niveau"] = _classificeer_niveau(v.get("titel", ""), v.get("beschrijving", ""))
             gewijzigd = True
     if gewijzigd:
+        _sla_actieve_videos_op(actieve)
+
+    # ── Haal videos op voor kanalen die nog niet vertegenwoordigd zijn ──
+    kanalen_aanwezig = {v.get("kanaal") for v in actieve}
+    ontbrekende = [k for k in KANALEN if k["naam"] not in kanalen_aanwezig]
+    if ontbrekende and len(actieve) >= 5:
+        bestaande_ids = {v["id"] for v in actieve}
+        for k in ontbrekende:
+            print(f"🆕 Nieuw kanaal toevoegen: {k['naam']}")
+            nieuw = _fetch_rss_videos(k["channel_id"], k["naam"], k["categorie"], k["emoji"])
+            nieuw = _filter_op_duur(nieuw)
+            te_voegen = [v for v in nieuw if v["id"] not in bestaande_ids][:5]
+            actieve.extend(te_voegen)
+            bestaande_ids.update(v["id"] for v in te_voegen)
+            print(f"  ✅ {len(te_voegen)} videos toegevoegd voor {k['naam']}")
         _sla_actieve_videos_op(actieve)
 
     # ── Eerste keer of bijna leeg ─────────────────────────
