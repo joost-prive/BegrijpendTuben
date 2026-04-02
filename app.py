@@ -155,6 +155,32 @@ _BOVENBOUW_KW = [
 ]
 
 
+# Keywords waarna credits/productie-info begint — geen inhoudelijke beschrijving
+_CREDITS_KW = [
+    'Credits:', 'credits:', 'Regie:', 'regie:', 'Animatie:', 'animatie:',
+    'Productie:', 'productie:', 'Camera:', 'camera:', 'Muziek:', 'muziek:',
+    'Tekst en regie', 'tekst en regie', 'Een productie van', 'een productie van',
+    'Met dank aan', 'met dank aan', 'Meer informatie:', 'meer informatie:',
+    'Volg ons', 'volg ons', 'Abonneer', 'abonneer', 'Subscribe', 'subscribe',
+    'Kijk ook op', 'kijk ook op', '© ', 'www.', 'http',
+]
+
+
+def _filter_beschrijving(tekst: str) -> str:
+    """
+    Verwijdert credits/productie-info uit een YouTube-beschrijving.
+    Kapt de tekst af bij het eerste credits-trefwoord.
+    Geeft lege string terug als er te weinig echte inhoud overblijft.
+    """
+    if not tekst:
+        return ""
+    for kw in _CREDITS_KW:
+        idx = tekst.find(kw)
+        if idx != -1:
+            tekst = tekst[:idx].strip().rstrip(',;:-')
+    return tekst if len(tekst) >= 30 else ""
+
+
 def _classificeer_niveau(titel: str, beschrijving: str) -> str:
     """
     Bepaalt het educatieve niveau op basis van titel en beschrijving.
@@ -275,7 +301,10 @@ def _fetch_rss_videos(channel_id, naam, categorie, emoji, max_items=10):
             if media_group is not None:
                 desc_el = media_group.find("media:description", ns)
                 if desc_el is not None and desc_el.text:
-                    beschrijving = desc_el.text[:200].replace("\n", " ").strip()
+                    # Neem meer tekst op zodat afkappen op woord mogelijk is,
+                    # maar filter credits/productie-info eerst weg
+                    rauw = desc_el.text[:500].replace("\n", " ").strip()
+                    beschrijving = _filter_beschrijving(rauw)
 
             titel_tekst = titel_el.text or "Onbekend filmpje"
             niveau = _classificeer_niveau(titel_tekst, beschrijving)
