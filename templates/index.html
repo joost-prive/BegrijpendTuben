@@ -160,14 +160,6 @@
 
     <div class="kaart video-kaart">
       <div class="video-wrapper">
-        <!--
-          sandbox="allow-scripts allow-same-origin allow-presentation":
-          - Voorkomt dat links in de video naar YouTube navigeren (geen allow-top-navigation)
-          - Voorkomt dat links een nieuw tabblad openen (geen allow-popups)
-          - allow-scripts: nodig voor de YouTube-speler
-          - allow-same-origin: nodig voor cookies/storage van YouTube
-          - allow-presentation: nodig voor volledig scherm
-        -->
         <iframe
           id="youtubePlayer"
           src=""
@@ -177,6 +169,19 @@
           allowfullscreen
           sandbox="allow-scripts allow-same-origin allow-presentation"
         ></iframe>
+        <!-- Einde-overlay: verschijnt automatisch als de video klaar is -->
+        <div class="video-einde-overlay" id="videoEindeOverlay" style="display:none;">
+          <div class="einde-inhoud">
+            <span class="einde-emoji">🎉</span>
+            <p class="einde-tekst">Klaar met kijken?</p>
+            <button class="knop knop-groot knop-groen" onclick="App.startQuiz()">
+              ✅ Start de vragen →
+            </button>
+            <button class="knop knop-klein knop-grijs" onclick="document.getElementById('videoEindeOverlay').style.display='none'">
+              ↩ Filmpje opnieuw kijken
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 

@@ -351,6 +351,17 @@ const App = (() => {
     document.getElementById('naamInvoer').addEventListener('keydown', e => {
       if (e.key === 'Enter') bevestigNaam();
     });
+
+    // YouTube IFrame API: detecteer wanneer video klaar is (state 0 = ended)
+    window.addEventListener('message', (e) => {
+      if (!e.data) return;
+      try {
+        const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+        if (data.event === 'onStateChange' && data.info === 0) {
+          document.getElementById('videoEindeOverlay').style.display = 'flex';
+        }
+      } catch {}
+    });
   });
 
   // Firebase-ready: laad score uit de cloud
@@ -447,10 +458,14 @@ const App = (() => {
     document.getElementById('videoTitel').textContent       = `${emoji || '🎬'} ${titel}`;
     document.getElementById('videoBeschrijving').textContent = beschrijving;
 
-    // YouTube privacy-enhanced embed: rel=0 = geen gerelateerde videos van andere kanalen,
-    // modestbranding=1 = minder YouTube-branding, iv_load_policy=3 = geen annotaties/cards
+    // YouTube privacy-enhanced embed
+    // enablejsapi=1: staat toe dat we via postMessage detecteren wanneer de video eindigt
     const player = document.getElementById('youtubePlayer');
-    player.src = `https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1&iv_load_policy=3`;
+    const origin = encodeURIComponent(window.location.origin);
+    player.src = `https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1&origin=${origin}`;
+
+    // Verberg het einde-overlay als de video herstart
+    document.getElementById('videoEindeOverlay').style.display = 'none';
 
     toonScherm('schermVideo');
   }
