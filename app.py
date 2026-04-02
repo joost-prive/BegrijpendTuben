@@ -113,12 +113,11 @@ KANALEN = [
     },
     {
         "naam":       "Schooltv",
-        "channel_id": "UCmyAAcFzmkD5SHIa0olqhgw",
+        "channel_id": "UC-qTnFGdceHsShjF2zUSAlQ",
         "categorie":  "Educatie",
         "emoji":      "📚",
     },
     {
-        # TODO: controleer dit channel_id – lijkt identiek aan Schooltv, mogelijk kopieerfout
         "naam":       "Clipphanger",
         "channel_id": "UCmyAAcFzmkD5SHIa0olqhgw",
         "categorie":  "Wetenschap",
