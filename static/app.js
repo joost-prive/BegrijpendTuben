@@ -2,9 +2,10 @@
 // BegrijpendTuben – Hoofd-JavaScript
 //
 // Nieuw in deze versie:
-//   - Zoekfunctie + categorie-tabs (vervangt URL-invoer)
-//   - Stop-knop in de quiz
-//   - Persistente score via localStorage (sterren-systeem)
+//   - Multi-player systeem (max 5 buttons, daarna dropdown)
+//   - Antwoord-opties worden per vraag gemengd
+//   - Onderbouw/bovenbouw niveau-filter via URL
+//   - Persistente score per speler via localStorage
 // ============================================================
 
 const App = (() => {
@@ -26,30 +27,230 @@ const App = (() => {
   const CONFETTI_KLEUREN = ['#7c3aed','#ec4899','#fbbf24','#10b981','#f87171','#60a5fa'];
 
   // ── localStorage sleutels ──────────────────────────────────
-  const SCORE_SLEUTEL  = 'begrijpendtuben_score';
-  const SPELER_SLEUTEL = 'begrijpendtuben_speler';
+  const SPELERS_SLEUTEL  = 'begrijpendtuben_spelers';   // nieuw: array van spelers
+  const ACTIEVE_SLEUTEL  = 'begrijpendtuben_actieve';   // naam van actieve speler
+  // Oud (voor migratie):
+  const SCORE_SLEUTEL    = 'begrijpendtuben_score';
+  const SPELER_SLEUTEL   = 'begrijpendtuben_speler';
 
-  // ── Actieve speler ─────────────────────────────────────────
+  const MAX_SPELER_KNOPPEN = 5;
+
+  // ── Multi-player staat ─────────────────────────────────────
+  let _spelers     = [];    // [{ naam, thema, score: {...} }]
+  let _actieveNaam = null;  // naam van actieve speler
+  let _editingNaam = null;  // naam van speler die bewerkt wordt in modal (null = nieuw)
+
+  // Backward compat: enkelvoudige speler-ref voor Firebase sync
   let _speler = null; // { naam, thema }
+
+  // ── Niveau-filter (ingesteld via window.NIVEAU vanuit Flask) ──
+  const NIVEAU = (typeof window !== 'undefined' && window.NIVEAU) ? window.NIVEAU : 'alles';
 
   // ── Categorie-emoji fallback ───────────────────────────────
   function _catEmoji(cat) {
-    const map = { Wetenschap:'🔬', Nieuws:'📰', Dieren:'🐾', Natuur:'🌿', Ruimte:'🚀', Geschiedenis:'🏛️' };
+    const map = {
+      Wetenschap:'🔬', Nieuws:'📰', Dieren:'🐾', Natuur:'🌿',
+      Ruimte:'🚀', Geschiedenis:'🏛️', Educatie:'📚',
+    };
     return map[cat] || '🎬';
   }
 
-  // ── Persistente score lezen/schrijven ──────────────────────
+  // ══════════════════════════════════════════════════════════
+  //  Multi-player systeem
+  // ══════════════════════════════════════════════════════════
+
+  function _leegScore() {
+    return { sterren: 0, totaalJuist: 0, totaalVragen: 0, sessiesGespeeld: 0, besteScore: 0 };
+  }
+
+  function _laadSpelers() {
+    try {
+      const data = JSON.parse(localStorage.getItem(SPELERS_SLEUTEL));
+      if (data && Array.isArray(data) && data.length > 0) return data;
+    } catch {}
+
+    // Migratie van oud enkelvoudig formaat
+    try {
+      const oud   = JSON.parse(localStorage.getItem(SPELER_SLEUTEL));
+      const score = JSON.parse(localStorage.getItem(SCORE_SLEUTEL));
+      if (oud && oud.naam) {
+        return [{ naam: oud.naam, thema: oud.thema || 'lief', score: score || _leegScore() }];
+      }
+    } catch {}
+
+    return [];
+  }
+
+  function _slaSpelersOp() {
+    localStorage.setItem(SPELERS_SLEUTEL, JSON.stringify(_spelers));
+  }
+
+  function _haalActieveSpeler() {
+    return _spelers.find(s => s.naam === _actieveNaam) || null;
+  }
+
+  // ── Score lezen/schrijven (werkt per actieve speler) ──────
 
   function _laadScore() {
-    try {
-      return JSON.parse(localStorage.getItem(SCORE_SLEUTEL)) || {
-        sterren: 0, totaalJuist: 0, totaalVragen: 0, sessiesGespeeld: 0, besteScore: 0,
-      };
-    } catch { return { sterren: 0, totaalJuist: 0, totaalVragen: 0, sessiesGespeeld: 0, besteScore: 0 }; }
+    const actief = _haalActieveSpeler();
+    return actief ? { ...actief.score } : _leegScore();
   }
 
   function _slaScore(data) {
-    localStorage.setItem(SCORE_SLEUTEL, JSON.stringify(data));
+    const idx = _spelers.findIndex(s => s.naam === _actieveNaam);
+    if (idx !== -1) {
+      _spelers[idx].score = data;
+      _slaSpelersOp();
+    }
+  }
+
+  // ── Thema toepassen ───────────────────────────────────────
+
+  function _pasThemaToe(thema) {
+    document.body.setAttribute('data-thema', thema || 'lief');
+  }
+
+  /** Wordt aangeroepen door de thema-knoppen in de modal. */
+  function kiesThema(knop) {
+    document.querySelectorAll('.thema-knop').forEach(b => b.classList.remove('actief'));
+    knop.classList.add('actief');
+  }
+
+  // ── Speler wisselen ───────────────────────────────────────
+
+  function _switchNaarSpeler(naam) {
+    _actieveNaam = naam;
+    localStorage.setItem(ACTIEVE_SLEUTEL, naam);
+    const speler = _haalActieveSpeler();
+    if (speler) {
+      _speler = { naam: speler.naam, thema: speler.thema };
+      _pasThemaToe(speler.thema);
+      _renderSpelerBalk();
+      _updateHeaderScore();
+      _syncFirebase();
+    }
+  }
+
+  /** Opent modal voor een nieuwe speler (lege velden). */
+  function nieuweSpeler() {
+    _editingNaam = null;
+    document.getElementById('naamInvoer').value = '';
+    document.querySelectorAll('.thema-knop').forEach(b => {
+      b.classList.toggle('actief', b.dataset.thema === 'lief');
+    });
+    document.getElementById('naamModal').style.display = 'flex';
+  }
+
+  /**
+   * Opent modal voor de actieve speler om naam/thema te wijzigen.
+   * Wordt ook aangeroepen bij 'wisselSpeler' (backward compat).
+   */
+  function wisselSpeler() {
+    const actief = _haalActieveSpeler();
+    _editingNaam = actief ? actief.naam : null;
+    document.getElementById('naamInvoer').value = actief ? actief.naam : '';
+    const thema = actief ? actief.thema : 'lief';
+    document.querySelectorAll('.thema-knop').forEach(b => {
+      b.classList.toggle('actief', b.dataset.thema === thema);
+    });
+    document.getElementById('naamModal').style.display = 'flex';
+  }
+
+  /** Bevestig naam + thema en sluit de modal. */
+  function bevestigNaam() {
+    const invoer = document.getElementById('naamInvoer');
+    const naam = invoer.value.trim();
+    if (!naam) {
+      invoer.focus();
+      invoer.style.borderColor = '#ef4444';
+      setTimeout(() => { invoer.style.borderColor = ''; }, 1200);
+      return;
+    }
+    const actieveKnop = document.querySelector('.thema-knop.actief');
+    const thema = actieveKnop ? actieveKnop.dataset.thema : 'lief';
+
+    if (_editingNaam !== null) {
+      // Bestaande speler bewerken (naam of thema wijzigen)
+      const idx = _spelers.findIndex(s => s.naam === _editingNaam);
+      if (idx !== -1) {
+        _spelers[idx].naam  = naam;
+        _spelers[idx].thema = thema;
+      }
+      _actieveNaam = naam;
+    } else {
+      // Nieuwe speler of terugkeren naar bestaande speler
+      const bestaand = _spelers.findIndex(s => s.naam === naam);
+      if (bestaand !== -1) {
+        // Bestaande speler: update alleen thema
+        _spelers[bestaand].thema = thema;
+      } else {
+        // Gloednieuwe speler met lege score
+        _spelers.push({ naam, thema, score: _leegScore() });
+      }
+      _actieveNaam = naam;
+    }
+
+    _editingNaam = null;
+    _slaSpelersOp();
+    localStorage.setItem(ACTIEVE_SLEUTEL, naam);
+    _speler = { naam, thema };
+    _pasThemaToe(thema);
+    _renderSpelerBalk();
+    document.getElementById('naamModal').style.display = 'none';
+    _updateHeaderScore();
+    _syncFirebase();
+  }
+
+  /** Rendert de speler-balk met buttons of dropdown. */
+  function _renderSpelerBalk() {
+    const balk = document.getElementById('spelerBalk');
+    if (!_actieveNaam) { balk.style.display = 'none'; return; }
+    balk.style.display = 'flex';
+
+    const container = document.getElementById('spelersContainer');
+    container.innerHTML = '';
+
+    if (_spelers.length <= MAX_SPELER_KNOPPEN) {
+      // Toon als knoppen
+      _spelers.forEach(speler => {
+        const knop = document.createElement('button');
+        const isActief = speler.naam === _actieveNaam;
+        knop.className = 'speler-knop' + (isActief ? ' actief' : '');
+        knop.textContent = `👤 ${speler.naam}`;
+        knop.title = isActief ? 'Klik om naam/thema te wijzigen' : `Schakel naar ${speler.naam}`;
+        knop.onclick = isActief
+          ? () => wisselSpeler()
+          : () => _switchNaarSpeler(speler.naam);
+        container.appendChild(knop);
+      });
+    } else {
+      // Toon als dropdown
+      const select = document.createElement('select');
+      select.className = 'speler-dropdown';
+      _spelers.forEach(speler => {
+        const opt = document.createElement('option');
+        opt.value    = speler.naam;
+        opt.textContent = `👤 ${speler.naam}`;
+        opt.selected = speler.naam === _actieveNaam;
+        select.appendChild(opt);
+      });
+      select.onchange = (e) => _switchNaarSpeler(e.target.value);
+      container.appendChild(select);
+    }
+  }
+
+  // ── Persistente score: header bijwerken ───────────────────
+
+  function _updateHeaderScore() {
+    const s = _laadScore();
+    const balk = document.getElementById('sterrenBalk');
+    if (s.sessiesGespeeld > 0) {
+      balk.style.display = 'flex';
+      document.getElementById('sterrenWaarde').textContent = `⭐ ${s.sterren}`;
+      document.getElementById('totaalGoed').textContent    = `${s.totaalJuist} / ${s.totaalVragen}`;
+    } else {
+      balk.style.display = 'none';
+    }
   }
 
   /**
@@ -65,79 +266,6 @@ const App = (() => {
     if (pct >= 0.4)   return 2;
     if (pct >= 0.2)   return 1;
     return 0;
-  }
-
-  /** Toont de huidige totaalscore in de header. */
-  function _updateHeaderScore() {
-    const s = _laadScore();
-    const balk = document.getElementById('sterrenBalk');
-    if (s.sessiesGespeeld > 0) {
-      balk.style.display = 'flex';
-      document.getElementById('sterrenWaarde').textContent = `⭐ ${s.sterren}`;
-      document.getElementById('totaalGoed').textContent    = `${s.totaalJuist} / ${s.totaalVragen}`;
-    }
-  }
-
-  // ── Speler: lezen / opslaan ────────────────────────────────
-
-  function _laadSpeler() {
-    try { return JSON.parse(localStorage.getItem(SPELER_SLEUTEL)) || null; }
-    catch { return null; }
-  }
-
-  function _slaSpelerOp(data) {
-    localStorage.setItem(SPELER_SLEUTEL, JSON.stringify(data));
-    _speler = data;
-  }
-
-  // ── Thema toepassen ───────────────────────────────────────
-
-  function _pasThemaToe(thema) {
-    document.body.setAttribute('data-thema', thema || 'lief');
-  }
-
-  /** Wordt aangeroepen door de thema-knoppen in de modal. */
-  function kiesThema(knop) {
-    document.querySelectorAll('.thema-knop').forEach(b => b.classList.remove('actief'));
-    knop.classList.add('actief');
-  }
-
-  // ── Naam-modal ────────────────────────────────────────────
-
-  /** Bevestig naam + thema en sluit de modal. */
-  function bevestigNaam() {
-    const invoer = document.getElementById('naamInvoer');
-    const naam = invoer.value.trim();
-    if (!naam) {
-      invoer.focus();
-      invoer.style.borderColor = '#ef4444';
-      setTimeout(() => { invoer.style.borderColor = ''; }, 1200);
-      return;
-    }
-    const actieveKnop = document.querySelector('.thema-knop.actief');
-    const thema = actieveKnop ? actieveKnop.dataset.thema : 'lief';
-
-    _slaSpelerOp({ naam, thema });
-    _pasThemaToe(thema);
-    _toonSpelerBalk(naam);
-    document.getElementById('naamModal').style.display = 'none';
-    _syncFirebase();
-  }
-
-  /** Toont de naam-modal opnieuw (andere speler). */
-  function wisselSpeler() {
-    const speler = _laadSpeler();
-    document.getElementById('naamInvoer').value = speler ? speler.naam : '';
-    const huidigThema = speler ? speler.thema : 'lief';
-    document.querySelectorAll('.thema-knop').forEach(b => {
-      b.classList.toggle('actief', b.dataset.thema === huidigThema);
-    });
-    document.getElementById('naamModal').style.display = 'flex';
-  }
-
-  function _toonSpelerBalk(naam) {
-    document.getElementById('spelerNaamTekst').textContent = `👤 ${naam}`;
-    document.getElementById('spelerBalk').style.display = 'flex';
   }
 
   // ── Firebase score-sync ───────────────────────────────────
@@ -168,20 +296,26 @@ const App = (() => {
       const snap = await getDoc(doc(window.db, 'spelers', window.fbUid));
       if (snap.exists()) {
         const data = snap.data();
-        _slaScore({
-          sterren:         data.sterren         || 0,
-          totaalJuist:     data.totaalJuist     || 0,
-          totaalVragen:    data.totaalVragen    || 0,
-          sessiesGespeeld: data.sessiesGespeeld || 0,
-          besteScore:      data.besteScore      || 0,
-        });
-        _updateHeaderScore();
-        // Naam/thema herstellen als localStorage leeg is
-        if (data.naam && !_laadSpeler()) {
-          _slaSpelerOp({ naam: data.naam, thema: data.thema || 'lief' });
+        // Firebase score alleen toepassen als er nog geen lokale speler is
+        if (data.naam && _spelers.length === 0) {
+          const nieuweScore = {
+            sterren:         data.sterren         || 0,
+            totaalJuist:     data.totaalJuist     || 0,
+            totaalVragen:    data.totaalVragen    || 0,
+            sessiesGespeeld: data.sessiesGespeeld || 0,
+            besteScore:      data.besteScore      || 0,
+          };
+          _spelers     = [{ naam: data.naam, thema: data.thema || 'lief', score: nieuweScore }];
+          _actieveNaam = data.naam;
+          _slaSpelersOp();
+          localStorage.setItem(ACTIEVE_SLEUTEL, data.naam);
+          _speler = { naam: data.naam, thema: data.thema || 'lief' };
           _pasThemaToe(data.thema || 'lief');
-          _toonSpelerBalk(data.naam);
+          _renderSpelerBalk();
+          _updateHeaderScore();
           document.getElementById('naamModal').style.display = 'none';
+        } else if (_actieveNaam) {
+          _updateHeaderScore();
         }
       }
     } catch (e) {
@@ -191,22 +325,32 @@ const App = (() => {
 
   // ── Initialisatie ──────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', () => {
+    // Laad spelers en herstel actieve speler
+    _spelers     = _laadSpelers();
+    _actieveNaam = localStorage.getItem(ACTIEVE_SLEUTEL);
+
+    // Migratie: als actieve naam niet bestaat, gebruik eerste speler
+    if (!_actieveNaam && _spelers.length > 0) {
+      _actieveNaam = _spelers[0].naam;
+      localStorage.setItem(ACTIEVE_SLEUTEL, _actieveNaam);
+    }
+
+    if (_actieveNaam && _spelers.some(s => s.naam === _actieveNaam)) {
+      const actief = _haalActieveSpeler();
+      _speler = { naam: actief.naam, thema: actief.thema };
+      _pasThemaToe(actief.thema);
+      _renderSpelerBalk();
+      _updateHeaderScore();
+    } else {
+      document.getElementById('naamModal').style.display = 'flex';
+    }
+
     _laadAlleVideos();
-    _updateHeaderScore();
 
     // Enter-toets in naam-invoer
     document.getElementById('naamInvoer').addEventListener('keydown', e => {
       if (e.key === 'Enter') bevestigNaam();
     });
-
-    const speler = _laadSpeler();
-    if (speler) {
-      _speler = speler;
-      _pasThemaToe(speler.thema);
-      _toonSpelerBalk(speler.naam);
-    } else {
-      document.getElementById('naamModal').style.display = 'flex';
-    }
   });
 
   // Firebase-ready: laad score uit de cloud
@@ -216,11 +360,11 @@ const App = (() => {
 
   // ── Video laden en weergeven ───────────────────────────────
 
-  /** Laadt alle video's bij start en slaat ze op in staat. */
   async function _laadAlleVideos() {
     const grid = document.getElementById('videoGrid');
     try {
-      const res = await fetch('/api/videos');
+      const url = NIVEAU !== 'alles' ? `/api/videos?niveau=${NIVEAU}` : '/api/videos';
+      const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       staat.alleVideos = await res.json();
       _renderVideoGrid(staat.alleVideos);
@@ -278,15 +422,12 @@ const App = (() => {
 
   // ── Kanaal-filter ──────────────────────────────────────────
 
-  /** Wordt aangeroepen door de kanaal-tabs. */
   function filterKanaal(knop, kanaal) {
     staat.huidigKanaal = kanaal;
 
-    // Actieve tab bijwerken
     document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('actief'));
     knop.classList.add('actief');
 
-    // Client-side filteren (geen extra fetch nodig)
     const gefilterd = kanaal
       ? staat.alleVideos.filter(v => v.kanaal === kanaal)
       : staat.alleVideos;
@@ -306,9 +447,10 @@ const App = (() => {
     document.getElementById('videoTitel').textContent       = `${emoji || '🎬'} ${titel}`;
     document.getElementById('videoBeschrijving').textContent = beschrijving;
 
-    // YouTube privacy-enhanced embed
+    // YouTube privacy-enhanced embed: rel=0 = geen gerelateerde videos van andere kanalen,
+    // modestbranding=1 = minder YouTube-branding, iv_load_policy=3 = geen annotaties/cards
     const player = document.getElementById('youtubePlayer');
-    player.src = `https://www.youtube-nocookie.com/embed/${videoId}?rel=0`;
+    player.src = `https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1&iv_load_policy=3`;
 
     toonScherm('schermVideo');
   }
@@ -321,11 +463,7 @@ const App = (() => {
     knop.disabled = true;
 
     try {
-      const params = new URLSearchParams({
-        video_id:     staat.huidigVideoId,
-        titel:        staat.huidigVideoInfo.titel        || '',
-        beschrijving: staat.huidigVideoInfo.beschrijving || '',
-      });
+      const params = new URLSearchParams({ video_id: staat.huidigVideoId });
       const res = await fetch(`/api/questions?${params}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
@@ -350,10 +488,6 @@ const App = (() => {
 
   // ── Quiz stoppen ───────────────────────────────────────────
 
-  /**
-   * Vraagt bevestiging en keert terug naar het video-scherm.
-   * Zo kan het kind het filmpje nog een keer bekijken.
-   */
   function stopQuiz() {
     if (confirm('Wil je de quiz stoppen en het filmpje opnieuw bekijken?')) {
       toonScherm('schermVideo');
@@ -375,14 +509,18 @@ const App = (() => {
     // Voortgangsbalk
     document.getElementById('voortgangVulling').style.width = `${(idx / totaal) * 100}%`;
 
-    // Antwoord-knoppen
+    // Meng antwoordopties (maar behoudt originele correct-string voor vergelijking)
+    const gemengd = vraag.opties
+      .map(optie => ({ optie, correct: optie === vraag.correct }))
+      .sort(() => Math.random() - 0.5);
+
     const grid = document.getElementById('antwoordGrid');
     grid.innerHTML = '';
-    vraag.opties.forEach((optie, i) => {
+    gemengd.forEach((item, i) => {
       const knop = document.createElement('button');
       knop.className = 'antwoord-knop';
-      knop.innerHTML = `<span class="antwoord-letter">${LETTERS[i]}</span><span>${optie}</span>`;
-      knop.addEventListener('click', () => _beantwoordVraag(optie, vraag));
+      knop.innerHTML = `<span class="antwoord-letter">${LETTERS[i]}</span><span>${item.optie}</span>`;
+      knop.addEventListener('click', () => _beantwoordVraag(item.optie, vraag));
       grid.appendChild(knop);
     });
 
@@ -458,7 +596,6 @@ const App = (() => {
     const pct     = totaal > 0 ? score / totaal : 0;
     const sterrenSessie = _berekenSterren(score, totaal);
 
-    // Sessie-score weergeven
     document.getElementById('scoreGroot').textContent = score;
     document.getElementById('scoreMax').textContent   = `/ ${totaal}`;
 
@@ -473,7 +610,6 @@ const App = (() => {
     document.getElementById('resultaatTitel').textContent  = titel;
     document.getElementById('scoreBericht').textContent    = bericht;
 
-    // Sterren animatie deze sessie
     const sterrenEl = document.getElementById('sterrenSessie');
     sterrenEl.innerHTML = '';
     for (let i = 1; i <= 5; i++) {
@@ -484,7 +620,6 @@ const App = (() => {
       sterrenEl.appendChild(ster);
     }
 
-    // Persistente score bijwerken
     const totaalScore = _laadScore();
     totaalScore.sterren        += sterrenSessie;
     totaalScore.totaalJuist    += score;
@@ -493,13 +628,11 @@ const App = (() => {
     totaalScore.besteScore      = Math.max(totaalScore.besteScore, Math.round(pct * 100));
     _slaScore(totaalScore);
     _updateHeaderScore();
-    _syncFirebase(); // async, fire-and-forget
+    _syncFirebase();
 
-    // Totaalscore tonen
     document.getElementById('totaalSterren').textContent = `⭐ ${totaalScore.sterren} sterren`;
     document.getElementById('totaalSub').textContent     = `Je hebt al ${totaalScore.totaalJuist} vragen goed beantwoord!`;
 
-    // Mijlpaal-felicitatie
     const mijlpalen = [10, 25, 50, 100];
     const geraakt   = mijlpalen.find(m => totaalScore.sterren >= m && totaalScore.sterren - sterrenSessie < m);
     if (geraakt) {
@@ -536,9 +669,12 @@ const App = (() => {
 
   function resetScore() {
     if (confirm('Weet je zeker dat je alle sterren en punten wilt wissen?')) {
-      localStorage.removeItem(SCORE_SLEUTEL);
+      const idx = _spelers.findIndex(s => s.naam === _actieveNaam);
+      if (idx !== -1) {
+        _spelers[idx].score = _leegScore();
+        _slaSpelersOp();
+      }
       _updateHeaderScore();
-      document.getElementById('sterrenBalk').style.display = 'none';
       alert('Score gewist! Begin opnieuw met spelen.');
     }
   }
@@ -578,6 +714,8 @@ const App = (() => {
     if (scherm) { scherm.classList.add('actief'); window.scrollTo({ top: 0, behavior: 'smooth' }); }
 
     const stapNummer = { schermKiezen:1, schermVideo:2, schermQuiz:3, schermResultaat:4 }[schermId] || 1;
+    const stapLabels = { 1:'Kies een filmpje', 2:'Bekijk het filmpje', 3:'Beantwoord vragen', 4:'Bekijk je score' };
+
     document.querySelectorAll('.stap').forEach(dot => {
       const nr = parseInt(dot.dataset.stap);
       dot.classList.remove('actief','klaar');
@@ -585,13 +723,19 @@ const App = (() => {
       else if (nr < stapNummer) dot.classList.add('klaar');
     });
 
+    // Mobiele stap-info bijwerken
+    const stapInfo = document.getElementById('stapActiefLabel');
+    if (stapInfo) stapInfo.textContent = `Stap ${stapNummer}: ${stapLabels[stapNummer]}`;
+
     if (schermId === 'schermKiezen') {
       document.getElementById('youtubePlayer').src = '';
     }
   }
 
   // ── Publieke interface ─────────────────────────────────────
-  return { filterKanaal, startQuiz, stopQuiz, volgendeVraag, opnieuwDezelfde, resetScore, toonScherm,
-           kiesThema, bevestigNaam, wisselSpeler };
+  return {
+    filterKanaal, startQuiz, stopQuiz, volgendeVraag, opnieuwDezelfde,
+    resetScore, toonScherm, kiesThema, bevestigNaam, wisselSpeler, nieuweSpeler,
+  };
 
 })();

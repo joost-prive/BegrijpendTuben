@@ -3,7 +3,7 @@
   "configurations": [
     {
       "name": "BegrijpendTuben (Flask)",
-      "runtimeExecutable": ".venv/Scripts/python",
+      "runtimeExecutable": "python",
       "runtimeArgs": ["-u", "app.py"],
       "port": 5000
     }

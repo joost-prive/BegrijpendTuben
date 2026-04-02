@@ -7,8 +7,13 @@
 #
 # Video-systeem:
 #   - Haalt automatisch de 20 nieuwste filmpjes op via YouTube RSS
-#   - Kanalen: Het Klokhuis + NOS Jeugdjournaal
+#   - Kanalen: Het Klokhuis + NOS Jeugdjournaal + meer
 #   - Elke 7 dagen worden de 5 oudste vervangen door 5 nieuwe
+#
+# Niveau-filtering:
+#   /           → alle filmpjes
+#   /onderbouw  → alleen filmpjes geschikt voor groep 1-4
+#   /bovenbouw  → alleen filmpjes geschikt voor groep 5-8
 # ============================================================
 
 import json
@@ -67,6 +72,8 @@ if USE_AI:
 # ══════════════════════════════════════════════════════════
 
 # Nederlandstalige educatieve YouTube-kanalen
+# channel_id vinden: ga naar het YouTube-kanaal en kopieer de ID uit de URL
+# of paginabron (zoek op "channelId").
 KANALEN = [
     {
         "naam":       "Het Klokhuis",
@@ -104,6 +111,20 @@ KANALEN = [
         "categorie":  "Geschiedenis",
         "emoji":      "🏛️",
     },
+    {
+        # TODO: verifieer channel_id via youtube.com/@schooltvnl → paginabron → "channelId"
+        "naam":       "Schooltv",
+        "channel_id": "UCy4OQSzqHEhFQq9mj3IU7pA",
+        "categorie":  "Educatie",
+        "emoji":      "📚",
+    },
+    {
+        # TODO: verifieer channel_id via het Clipphanger YouTube-kanaal
+        "naam":       "Clipphanger",
+        "channel_id": "UCDfARYL8d3X6NV8K6xo6Qzw",
+        "categorie":  "Wetenschap",
+        "emoji":      "🎒",
+    },
 ]
 
 ACTIEVE_VIDEOS_PAD  = os.path.join(DATA_DIR, "active_videos.json")
@@ -111,6 +132,49 @@ VRAGEN_CACHE_PAD    = os.path.join(DATA_DIR, "questions_cache.json")
 MAX_VIDEOS    = 60   # maximaal aantal actieve videos
 ROTATIE_BATCH = 5    # hoeveel videos per week worden vervangen
 ROTATIE_DAGEN = 7    # na hoeveel dagen wordt geroteerd
+
+
+# ══════════════════════════════════════════════════════════
+#  Niveau-classificatie (onderbouw / bovenbouw / alles)
+# ══════════════════════════════════════════════════════════
+
+_ONDERBOUW_KW = [
+    'groep 1', 'groep 2', 'groep 3', 'groep 4',
+    'groep1', 'groep2', 'groep3', 'groep4',
+    'kleuter', 'kleutergroep', 'voor kleuters',
+    'leren lezen', 'letters leren', 'cijfers leren',
+    'beginnende lezers',
+]
+
+_BOVENBOUW_KW = [
+    'groep 5', 'groep 6', 'groep 7', 'groep 8',
+    'groep5', 'groep6', 'groep7', 'groep8',
+    'bovenbouw', 'voortgezet onderwijs',
+    'oorlog', 'klimaatverandering', 'verkiezingen', 'politiek',
+    'economie', 'vluchtelingen', 'migratie', 'terrorisme',
+    'seksualiteit', 'drugs', 'geweld', 'rampen', 'doodstraf',
+    'kijkwijzer', 'angst en spanning', 'discriminatie',
+]
+
+
+def _classificeer_niveau(titel: str, beschrijving: str) -> str:
+    """
+    Bepaalt het educatieve niveau op basis van titel en beschrijving.
+    Kijkt eerst naar expliciete groep-aanduidingen (Schooltv-stijl),
+    daarna naar moeilijke onderwerpen.
+    Returns: 'onderbouw', 'bovenbouw', of 'alles'
+    """
+    tekst = (titel + " " + beschrijving).lower()
+
+    for kw in _BOVENBOUW_KW:
+        if kw in tekst:
+            return 'bovenbouw'
+
+    for kw in _ONDERBOUW_KW:
+        if kw in tekst:
+            return 'onderbouw'
+
+    return 'alles'
 
 
 def _parse_iso_duur(iso: str) -> int | None:
@@ -182,7 +246,7 @@ def _filter_op_duur(videos: list) -> list:
 def _fetch_rss_videos(channel_id, naam, categorie, emoji, max_items=10):
     """
     Haalt de laatste videos op via de YouTube RSS feed van een kanaal.
-    Geeft een lijst van video-dicts terug.
+    Geeft een lijst van video-dicts terug, inclusief niveau-classificatie.
     """
     url = f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
     try:
@@ -215,16 +279,20 @@ def _fetch_rss_videos(channel_id, naam, categorie, emoji, max_items=10):
                 if desc_el is not None and desc_el.text:
                     beschrijving = desc_el.text[:200].replace("\n", " ").strip()
 
+            titel_tekst = titel_el.text or "Onbekend filmpje"
+            niveau = _classificeer_niveau(titel_tekst, beschrijving)
+
             videos.append({
                 "id":           vid_el.text,
-                "titel":        titel_el.text or "Onbekend filmpje",
+                "titel":        titel_tekst,
                 "beschrijving": beschrijving or f"Filmpje van {naam}.",
                 "categorie":    categorie,
                 "kanaal":       naam,
                 "emoji":        emoji,
                 "thumbnail":    f"https://img.youtube.com/vi/{vid_el.text}/mqdefault.jpg",
                 "tags":         [naam.lower().replace(" ", ""), categorie.lower()],
-                "toegevoegd":   vandaag,   # datum waarop video in de app is gezet
+                "toegevoegd":   vandaag,
+                "niveau":       niveau,
             })
 
         return videos
@@ -257,15 +325,25 @@ def _sla_actieve_videos_op(videos):
 
 def _haal_en_roteer_videos():
     """
-    Geeft de actieve videolijst terug (max. 20 videos).
+    Geeft de actieve videolijst terug (max. MAX_VIDEOS videos).
 
     Logica:
     - Eerste keer (of leeg bestand): vul met RSS-videos.
     - Elke 7 dagen: vervang de 5 oudste door 5 nieuwe van de RSS-feeds.
     - Als RSS niet bereikbaar is: geef de bestaande lijst terug.
+    - Bestaande videos zonder 'niveau' krijgen automatisch een classificatie.
     """
     actieve = _laad_actieve_videos()
     nu      = datetime.now()
+
+    # ── Voeg niveau toe aan bestaande videos zonder het veld ──
+    gewijzigd = False
+    for v in actieve:
+        if "niveau" not in v:
+            v["niveau"] = _classificeer_niveau(v.get("titel", ""), v.get("beschrijving", ""))
+            gewijzigd = True
+    if gewijzigd:
+        _sla_actieve_videos_op(actieve)
 
     # ── Eerste keer of bijna leeg ─────────────────────────
     if len(actieve) < 5:
@@ -458,16 +536,34 @@ def laad_vragen(video_id: str, video_titel: str = "", video_beschrijving: str = 
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("index.html", niveau="alles")
+
+
+@app.route("/onderbouw")
+def onderbouw():
+    """Toont alleen filmpjes geschikt voor groep 1-4."""
+    return render_template("index.html", niveau="onderbouw")
+
+
+@app.route("/bovenbouw")
+def bovenbouw():
+    """Toont alleen filmpjes geschikt voor groep 5-8."""
+    return render_template("index.html", niveau="bovenbouw")
 
 
 @app.route("/api/videos")
 def get_videos():
     """
-    Geeft de actieve videolijst terug (max. 20 videos).
+    Geeft de actieve videolijst terug.
+    Optionele query-parameter: ?niveau=onderbouw|bovenbouw|alles
     Videos worden automatisch wekelijks ververst via RSS.
     """
     videos = _haal_en_roteer_videos()
+
+    niveau = request.args.get("niveau", "alles").strip().lower()
+    if niveau in ("onderbouw", "bovenbouw"):
+        videos = [v for v in videos if v.get("niveau", "alles") in (niveau, "alles")]
+
     return jsonify(videos)
 
 
@@ -501,10 +597,33 @@ def search_videos():
 
 @app.route("/api/questions")
 def get_questions():
-    """Geeft meerkeuze-vragen terug voor een video."""
-    video_id     = request.args.get("video_id",     "standaard")
-    titel        = request.args.get("titel",        "Educatieve video")
-    beschrijving = request.args.get("beschrijving", "")
+    """
+    Geeft meerkeuze-vragen terug voor een video.
+
+    Beveiligingsmaatregelen:
+    - video_id wordt gevalideerd als geldig YouTube-ID (11 tekens)
+    - titel en beschrijving worden altijd uit onze eigen database gehaald,
+      nooit van de client – voorkomt prompt injection.
+    """
+    video_id = request.args.get("video_id", "standaard")
+
+    # Valideer video_id: alleen 11 alfanumerieke tekens + - en _
+    if video_id != "standaard" and not re.match(r'^[A-Za-z0-9_\-]{11}$', video_id):
+        return jsonify({"error": "Ongeldig video_id"}), 400
+
+    # Haal titel en beschrijving altijd uit onze eigen database
+    actieve   = _laad_actieve_videos()
+    video_map = {v["id"]: v for v in actieve}
+
+    if video_id in video_map:
+        video        = video_map[video_id]
+        titel        = video["titel"]
+        beschrijving = video["beschrijving"]
+    elif video_id == "standaard":
+        titel        = "Educatieve video"
+        beschrijving = ""
+    else:
+        return jsonify({"error": "Video niet gevonden"}), 404
 
     vragen = laad_vragen(video_id, titel, beschrijving)
 

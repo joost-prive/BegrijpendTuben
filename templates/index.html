@@ -8,6 +8,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;800&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/static/style.css" />
 
+  <!-- Niveau-filter ingesteld door Flask (alles / onderbouw / bovenbouw) -->
+  <script>window.NIVEAU = "{{ niveau|default('alles') }}";</script>
+
   <!-- ══════════════════════════════════════════
        FIREBASE (optioneel – voor score-sync)
        Stap 1: Maak een project op https://console.firebase.google.com
@@ -56,11 +59,13 @@
       <span class="logo-emoji">✨</span>
     </div>
     <p class="tagline">Kijk een filmpje en laat zien wat jij hebt geleerd!</p>
-    <!-- Speler-naam: zichtbaar nadat naam is ingevoerd -->
+
+    <!-- Speler-balk: buttons voor elke bekende speler + "Nieuw" knop -->
     <div class="speler-balk" id="spelerBalk" style="display:none;">
-      <span id="spelerNaamTekst">👤</span>
-      <button class="speler-wissel-knop" onclick="App.wisselSpeler()">↔ andere speler</button>
+      <div id="spelersContainer"></div>
+      <button class="speler-nieuw-knop" onclick="App.nieuweSpeler()" title="Andere speler toevoegen">+ Nieuw</button>
     </div>
+
     <!-- Sterren-teller: zichtbaar nadat de eerste quiz gespeeld is -->
     <div class="sterren-balk" id="sterrenBalk" style="display:none;">
       <span class="sterren-label">Jouw sterren:</span>
@@ -76,24 +81,26 @@
   <div class="stap-balk" id="stapBalk">
     <div class="stap actief" id="stap1Dot" data-stap="1">
       <span class="stap-getal">1</span>
-      <span class="stap-label">Kies een filmpje</span>
+      <span class="stap-label" data-kort="Kies">Kies een filmpje</span>
     </div>
     <div class="stap-lijn"></div>
     <div class="stap" id="stap2Dot" data-stap="2">
       <span class="stap-getal">2</span>
-      <span class="stap-label">Bekijk het filmpje</span>
+      <span class="stap-label" data-kort="Kijk">Bekijk het filmpje</span>
     </div>
     <div class="stap-lijn"></div>
     <div class="stap" id="stap3Dot" data-stap="3">
       <span class="stap-getal">3</span>
-      <span class="stap-label">Beantwoord vragen</span>
+      <span class="stap-label" data-kort="Quiz">Beantwoord vragen</span>
     </div>
     <div class="stap-lijn"></div>
     <div class="stap" id="stap4Dot" data-stap="4">
       <span class="stap-getal">4</span>
-      <span class="stap-label">Bekijk je score</span>
+      <span class="stap-label" data-kort="Score">Bekijk je score</span>
     </div>
   </div>
+  <!-- Mobiele stap-info: toont de naam van de actieve stap -->
+  <div class="stap-actief-label" id="stapActiefLabel">Stap 1: Kies een filmpje</div>
 
   <!-- ══════════════════════════════════════════
        SCHERM 1 – VIDEO KIEZEN
@@ -115,6 +122,8 @@
         <button class="cat-tab" onclick="App.filterKanaal(this, 'Vroege Vogels')">🌿 Vroege Vogels</button>
         <button class="cat-tab" onclick="App.filterKanaal(this, 'Klaas Kan Alles')">🚀 Klaas Kan Alles</button>
         <button class="cat-tab" onclick="App.filterKanaal(this, 'Jort Kelder Geschiedenis')">🏛️ Geschiedenis</button>
+        <button class="cat-tab" onclick="App.filterKanaal(this, 'Schooltv')">📚 Schooltv</button>
+        <button class="cat-tab" onclick="App.filterKanaal(this, 'Clipphanger')">🎒 Clipphanger</button>
       </div>
     </div>
 
@@ -139,7 +148,6 @@
   ══════════════════════════════════════════ -->
   <section class="scherm" id="schermVideo">
 
-    <!-- Back-knop prominent bovenaan -->
     <button class="knop knop-terug" onclick="App.toonScherm('schermKiezen')">
       ← Ander filmpje kiezen
     </button>
@@ -151,6 +159,14 @@
 
     <div class="kaart video-kaart">
       <div class="video-wrapper">
+        <!--
+          sandbox="allow-scripts allow-same-origin allow-presentation":
+          - Voorkomt dat links in de video naar YouTube navigeren (geen allow-top-navigation)
+          - Voorkomt dat links een nieuw tabblad openen (geen allow-popups)
+          - allow-scripts: nodig voor de YouTube-speler
+          - allow-same-origin: nodig voor cookies/storage van YouTube
+          - allow-presentation: nodig voor volledig scherm
+        -->
         <iframe
           id="youtubePlayer"
           src=""
@@ -158,6 +174,7 @@
           frameborder="0"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowfullscreen
+          sandbox="allow-scripts allow-same-origin allow-presentation"
         ></iframe>
       </div>
     </div>
@@ -178,12 +195,10 @@
   ══════════════════════════════════════════ -->
   <section class="scherm" id="schermQuiz">
 
-    <!-- Stop-knop bovenaan -->
     <button class="knop knop-terug knop-terug-rood" onclick="App.stopQuiz()">
       ✕ Stop quiz
     </button>
 
-    <!-- Voortgangsbalk -->
     <div class="kaart voortgang-kaart">
       <div class="voortgang-header">
         <span id="vraagTeller">Vraag 1 van 5</span>
@@ -194,13 +209,11 @@
       </div>
     </div>
 
-    <!-- Vraagkaart -->
     <div class="kaart vraag-kaart" id="vraagKaart">
       <div class="vraag-nummer" id="vraagNummer">Vraag 1</div>
       <h2 class="vraag-tekst" id="vraagTekst">Loading...</h2>
       <div class="antwoord-grid" id="antwoordGrid"></div>
 
-      <!-- Feedback na antwoord -->
       <div class="feedback-blok" id="feedbackBlok" style="display:none;">
         <div class="feedback-emoji" id="feedbackEmoji"></div>
         <div class="feedback-bericht" id="feedbackBericht"></div>
@@ -224,27 +237,22 @@
       <div class="resultaat-trophy" id="resultaatTrophy">🏆</div>
       <h2 class="resultaat-titel" id="resultaatTitel">Super gedaan!</h2>
 
-      <!-- Sessie-score -->
       <div class="score-cirkel">
         <span class="score-groot" id="scoreGroot">0</span>
         <span class="score-max" id="scoreMax">/ 5</span>
       </div>
       <p class="score-bericht" id="scoreBericht">Je hebt alle vragen goed!</p>
 
-      <!-- Sterren verdiend deze sessie -->
       <div class="sterren-sessie" id="sterrenSessie"></div>
 
-      <!-- Totaalscore over alle sessies -->
       <div class="totaal-kaart" id="totaalKaart">
         <p class="totaal-label">Jouw totale sterren:</p>
         <p class="totaal-sterren" id="totaalSterren">⭐ 0 sterren</p>
         <p class="totaal-sub" id="totaalSub">Je hebt al 0 vragen goed beantwoord!</p>
       </div>
 
-      <!-- Antwoord-overzicht -->
       <div class="antwoord-overzicht" id="antwoordOverzicht"></div>
 
-      <!-- Knoppen -->
       <div class="resultaat-knoppen">
         <button class="knop knop-groot knop-groen" onclick="App.opnieuwDezelfde()">
           🔄 Dezelfde vragen opnieuw
@@ -254,7 +262,6 @@
         </button>
       </div>
 
-      <!-- Reset-knop voor ouder/leerkracht -->
       <button class="knop knop-klein knop-grijs" onclick="App.resetScore()" style="margin-top:16px;">
         🗑️ Score resetten
       </button>
@@ -263,7 +270,7 @@
   </section>
 
   <!-- ══════════════════════════════════════════
-       NAAM-MODAL – getoond bij eerste bezoek
+       NAAM-MODAL – getoond bij eerste bezoek of nieuwe speler
   ══════════════════════════════════════════ -->
   <div class="modal-overlay" id="naamModal" style="display:none;">
     <div class="modal-kaart">
@@ -305,6 +312,13 @@
       </button>
     </div>
   </div>
+
+  <!-- ══════════════════════════════════════════
+       FOOTER
+  ══════════════════════════════════════════ -->
+  <footer class="app-footer">
+    <p>Copyright 2026 Joost van de Ven</p>
+  </footer>
 
   <script src="/static/app.js"></script>
 </body>
