@@ -20,6 +20,7 @@ import json
 import os
 import re
 import sys
+import threading
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -341,11 +342,12 @@ def _laad_actieve_videos():
 
 
 def _sla_actieve_videos_op(videos):
-    """Sla de actieve videolijst op in het JSON-bestand."""
+    """Sla de actieve videolijst op in het JSON-bestand en wis de in-memory cache."""
     try:
         os.makedirs(DATA_DIR, exist_ok=True)
         with open(ACTIEVE_VIDEOS_PAD, "w", encoding="utf-8") as f:
             json.dump(videos, f, ensure_ascii=False, indent=2)
+        _invalideer_videos_cache()
     except Exception as e:
         print(f"⚠️  Kon videos niet opslaan: {e}")
 
@@ -467,6 +469,21 @@ def _sla_vragen_cache_op(cache: dict) -> None:
 _vragen_cache = _laad_vragen_cache()
 print(f"💾 Vragencache geladen: {len(_vragen_cache)} video('s) gecached")
 
+# In-memory video-cache: voorkomt schijf-read bij elke /api/questions aanroep
+_videos_cache: list = []
+
+def _haal_videos_cache() -> list:
+    """Geeft de in-memory videocache terug; laadt van schijf als leeg."""
+    global _videos_cache
+    if not _videos_cache:
+        _videos_cache = _laad_actieve_videos()
+    return _videos_cache
+
+def _invalideer_videos_cache():
+    """Wis de in-memory videocache zodat die bij de volgende aanroep opnieuw geladen wordt."""
+    global _videos_cache
+    _videos_cache = []
+
 
 # ══════════════════════════════════════════════════════════
 #  Vraag-systeem
@@ -537,7 +554,7 @@ Regels:
             {"role": "user",   "content": prompt},
         ],
         temperature=0.7,
-        max_tokens=1000,
+        max_tokens=600,
     )
 
     tekst = response.choices[0].message.content.strip()
@@ -660,8 +677,8 @@ def get_questions():
     if video_id != "standaard" and not re.match(r'^[A-Za-z0-9_\-]{11}$', video_id):
         return jsonify({"error": "Ongeldig video_id"}), 400
 
-    # Haal titel en beschrijving altijd uit onze eigen database
-    actieve   = _laad_actieve_videos()
+    # Haal titel en beschrijving altijd uit onze eigen database (in-memory cache)
+    actieve   = _haal_videos_cache()
     video_map = {v["id"]: v for v in actieve}
 
     if video_id in video_map:
@@ -682,6 +699,48 @@ def get_questions():
         "totaal":   len(vragen),
         "bron":     "ai" if (USE_AI and _openai_client) else "dummy",
     })
+
+
+@app.route("/api/prewarm", methods=["POST"])
+def prewarm_questions():
+    """
+    Start vraag-generatie op de achtergrond zodra een video gekozen wordt.
+    De gebruiker kijkt intussen het filmpje; als hij/zij klaar is zijn de
+    vragen al klaar in de cache.
+    """
+    video_id = request.json.get("video_id", "") if request.json else ""
+    if not video_id or not re.match(r'^[A-Za-z0-9_\-]{11}$', video_id):
+        return jsonify({"status": "skip"}), 200
+
+    # Al in cache? Niks te doen.
+    if video_id in _vragen_cache:
+        return jsonify({"status": "cached"}), 200
+
+    # Alleen zinvol als AI actief is
+    if not (USE_AI and _openai_client):
+        return jsonify({"status": "no-ai"}), 200
+
+    actieve   = _haal_videos_cache()
+    video_map = {v["id"]: v for v in actieve}
+    if video_id not in video_map:
+        return jsonify({"status": "unknown"}), 200
+
+    video = video_map[video_id]
+
+    def _genereer_op_achtergrond():
+        if video_id in _vragen_cache:
+            return
+        try:
+            vragen = _genereer_vragen_met_ai(video_id, video["titel"], video["beschrijving"])
+            _vragen_cache[video_id] = vragen
+            _sla_vragen_cache_op(_vragen_cache)
+            print(f"🔥 Pre-warm klaar voor '{video_id}'")
+        except Exception as e:
+            print(f"⚠️  Pre-warm mislukt voor '{video_id}': {e}")
+
+    t = threading.Thread(target=_genereer_op_achtergrond, daemon=True)
+    t.start()
+    return jsonify({"status": "started"}), 202
 
 
 @app.route("/api/status")

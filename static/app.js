@@ -467,6 +467,13 @@ const App = (() => {
     const origin = encodeURIComponent(window.location.origin);
     player.src = `https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1&iv_load_policy=3&enablejsapi=1&origin=${origin}`;
 
+    // Start vraag-generatie alvast op de achtergrond terwijl het kind kijkt
+    fetch('/api/prewarm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ video_id: videoId }),
+    }).catch(() => {}); // fire-and-forget, fout is niet erg
+
     // Verberg het einde-overlay als de video herstart
     document.getElementById('videoEindeOverlay').style.display = 'none';
 
