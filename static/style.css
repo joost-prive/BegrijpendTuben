@@ -1169,6 +1169,7 @@ body {
 }
 
 .modal-kaart {
+  position: relative;
   background: var(--wit);
   border-radius: var(--radius-groot);
   padding: 32px 28px;
@@ -1177,6 +1178,31 @@ body {
   text-align: center;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   animation: popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Sluitknop rechtsboven in de modal */
+.modal-sluit {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: var(--grijs-licht);
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  font-size: 1rem;
+  cursor: pointer;
+  color: var(--grijs);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+  line-height: 1;
+}
+
+.modal-sluit:hover {
+  background: var(--rood-licht);
+  color: var(--rood);
 }
 
 .modal-emoji {

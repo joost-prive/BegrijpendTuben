@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f0e6ff"/>
+      <stop offset="50%" stop-color="#fce7f3"/>
+      <stop offset="100%" stop-color="#fef3c7"/>
+    </linearGradient>
+    <linearGradient id="badge" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7c3aed"/>
+      <stop offset="100%" stop-color="#ec4899"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Achtergrond -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- Decoratieve cirkels -->
+  <circle cx="100" cy="100" r="180" fill="#7c3aed" opacity="0.07"/>
+  <circle cx="1100" cy="530" r="220" fill="#ec4899" opacity="0.07"/>
+  <circle cx="1050" cy="80" r="120" fill="#fbbf24" opacity="0.1"/>
+
+  <!-- Badge bovenin -->
+  <rect x="480" y="80" width="240" height="44" rx="22" fill="url(#badge)"/>
+  <text x="600" y="109" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="white" text-anchor="middle">🎓 Gratis · Basisschool</text>
+
+  <!-- Logo emoji -->
+  <text x="600" y="260" font-family="Arial, sans-serif" font-size="100" text-anchor="middle">🎬</text>
+
+  <!-- Titel -->
+  <text x="600" y="340" font-family="Arial Black, Arial, sans-serif" font-size="72" font-weight="900" fill="#5b21b6" text-anchor="middle">BegrijpendTuben</text>
+
+  <!-- Ondertitel -->
+  <text x="600" y="410" font-family="Arial, sans-serif" font-size="32" font-weight="600" fill="#7c3aed" text-anchor="middle">Kijk een filmpje · Leer ervan · Verdien sterren ⭐</text>
+
+  <!-- Kanalen -->
+  <text x="600" y="490" font-family="Arial, sans-serif" font-size="22" fill="#6b7280" text-anchor="middle">Het Klokhuis · Jeugdjournaal · Schooltv · De Buitendienst · en meer</text>
+
+  <!-- URL -->
+  <text x="600" y="570" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#a78bfa" text-anchor="middle">begrijpendtuben.nl</text>
+</svg>

@@ -3,7 +3,58 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BegrijpendTuben 🎬✨</title>
+  <title>BegrijpendTuben – Kijk, begrijp en leer van YouTube-filmpjes</title>
+
+  <!-- SEO basis -->
+  <meta name="description" content="BegrijpendTuben is een gratis educatieve website voor basisschoolkinderen. Kijk een kort educatief filmpje van Het Klokhuis, Jeugdjournaal of Schooltv en beantwoord daarna leuke meerkeuze-vragen." />
+  <meta name="keywords" content="educatief, basisschool, kinderen, youtube, klokhuis, jeugdjournaal, schooltv, quiz, begrijpend lezen, leren" />
+  <meta name="author" content="Joost van de Ven" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://begrijpendtuben.nl/" />
+
+  <!-- Open Graph (Facebook, WhatsApp, LinkedIn) -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://begrijpendtuben.nl/" />
+  <meta property="og:title" content="BegrijpendTuben – Leer van YouTube-filmpjes" />
+  <meta property="og:description" content="Kijk een educatief filmpje en beantwoord meerkeuze-vragen. Gratis voor basisschoolkinderen." />
+  <meta property="og:image" content="https://begrijpendtuben.nl/static/og-image.png" />
+  <meta property="og:locale" content="nl_NL" />
+  <meta property="og:site_name" content="BegrijpendTuben" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="BegrijpendTuben – Leer van YouTube-filmpjes" />
+  <meta name="twitter:description" content="Kijk een educatief filmpje en beantwoord meerkeuze-vragen. Gratis voor basisschoolkinderen." />
+  <meta name="twitter:image" content="https://begrijpendtuben.nl/static/og-image.png" />
+
+  <!-- GEO / AI-zoekmachines (gestructureerde data) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "BegrijpendTuben",
+    "url": "https://begrijpendtuben.nl",
+    "description": "Educatieve quiz-app voor basisschoolkinderen. Kijk een kort YouTube-filmpje van Het Klokhuis, Jeugdjournaal of Schooltv en beantwoord daarna meerkeuze-vragen om te laten zien wat je hebt geleerd.",
+    "applicationCategory": "EducationalApplication",
+    "educationalLevel": "Basisschool (groep 1-8)",
+    "audience": {
+      "@type": "EducationalAudience",
+      "educationalRole": "student",
+      "audienceType": "Kinderen van 6 tot 13 jaar"
+    },
+    "inLanguage": "nl",
+    "isAccessibleForFree": true,
+    "author": {
+      "@type": "Person",
+      "name": "Joost van de Ven"
+    },
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "EUR"
+    }
+  }
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;800&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet" />
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
@@ -280,6 +331,7 @@
   ══════════════════════════════════════════ -->
   <div class="modal-overlay" id="naamModal" style="display:none;">
     <div class="modal-kaart">
+      <button class="modal-sluit" id="modalSluitKnop" onclick="document.getElementById('naamModal').style.display='none'" style="display:none;" aria-label="Sluiten">✕</button>
       <span class="modal-emoji">🎬</span>
       <h2 class="modal-titel">Hoi! Wat is jouw naam?</h2>
       <p class="modal-sub">Zo houden we jouw score bij!</p>

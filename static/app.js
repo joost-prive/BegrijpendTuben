@@ -131,16 +131,6 @@ const App = (() => {
     }
   }
 
-  /** Opent modal voor een nieuwe speler (lege velden). */
-  function nieuweSpeler() {
-    _editingNaam = null;
-    document.getElementById('naamInvoer').value = '';
-    document.querySelectorAll('.thema-knop').forEach(b => {
-      b.classList.toggle('actief', b.dataset.thema === 'lief');
-    });
-    document.getElementById('naamModal').style.display = 'flex';
-  }
-
   /**
    * Opent modal voor de actieve speler om naam/thema te wijzigen.
    * Wordt ook aangeroepen bij 'wisselSpeler' (backward compat).
@@ -153,6 +143,19 @@ const App = (() => {
     document.querySelectorAll('.thema-knop').forEach(b => {
       b.classList.toggle('actief', b.dataset.thema === thema);
     });
+    document.getElementById('modalSluitKnop').style.display = 'block';
+    document.getElementById('naamModal').style.display = 'flex';
+  }
+
+  function nieuweSpeler() {
+    _editingNaam = null;
+    document.getElementById('naamInvoer').value = '';
+    document.querySelectorAll('.thema-knop').forEach(b => {
+      b.classList.toggle('actief', b.dataset.thema === 'lief');
+    });
+    // Kruisje alleen tonen als er al een speler is (anders zit je vast)
+    document.getElementById('modalSluitKnop').style.display =
+      _actieveNaam ? 'block' : 'none';
     document.getElementById('naamModal').style.display = 'flex';
   }
 
