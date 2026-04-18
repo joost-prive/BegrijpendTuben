@@ -33,6 +33,12 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
 from flask import Flask, jsonify, render_template, request
 from flask_cors import CORS
 
+try:
+    from youtube_transcript_api import YouTubeTranscriptApi, NoTranscriptFound, TranscriptsDisabled
+    _transcript_api_beschikbaar = True
+except ImportError:
+    _transcript_api_beschikbaar = False
+
 app = Flask(__name__)
 CORS(app)
 
@@ -66,6 +72,33 @@ if USE_AI:
     except ImportError:
         print("⚠️  openai package niet geïnstalleerd. Voer uit: pip install openai")
         USE_AI = False
+
+# ── Firestore (persistente cache, optioneel) ───────────────
+_db = None
+
+def _init_firebase():
+    """
+    Verbindt met Firestore via een service account JSON in de
+    omgevingsvariabele FIREBASE_SERVICE_ACCOUNT.
+    Zonder die variabele werkt de app gewoon met lokale JSON-bestanden.
+    """
+    global _db
+    service_account_json = os.environ.get("FIREBASE_SERVICE_ACCOUNT", "")
+    if not service_account_json:
+        print("ℹ️  FIREBASE_SERVICE_ACCOUNT niet ingesteld — lokale JSON-cache wordt gebruikt")
+        return
+    try:
+        import firebase_admin
+        from firebase_admin import credentials, firestore as _fs
+        if not firebase_admin._apps:
+            cred = credentials.Certificate(json.loads(service_account_json))
+            firebase_admin.initialize_app(cred)
+        _db = _fs.client()
+        print("✅ Firestore verbinding klaar")
+    except Exception as e:
+        print(f"⚠️  Firebase init mislukt: {e}")
+
+_init_firebase()
 
 
 # ══════════════════════════════════════════════════════════
@@ -331,7 +364,16 @@ def _fetch_rss_videos(channel_id, naam, categorie, emoji, max_items=10):
 
 
 def _laad_actieve_videos():
-    """Laad de actieve videolijst uit het JSON-bestand."""
+    """Laad de actieve videolijst: eerst Firestore, dan lokaal bestand."""
+    if _db:
+        try:
+            doc = _db.collection('cache').document('active_videos').get()
+            if doc.exists:
+                videos = doc.to_dict().get('videos', [])
+                if videos:
+                    return videos
+        except Exception as e:
+            print(f"⚠️  Firestore videos laden mislukt: {e}")
     if os.path.exists(ACTIEVE_VIDEOS_PAD):
         try:
             with open(ACTIEVE_VIDEOS_PAD, encoding="utf-8") as f:
@@ -342,7 +384,12 @@ def _laad_actieve_videos():
 
 
 def _sla_actieve_videos_op(videos):
-    """Sla de actieve videolijst op in het JSON-bestand en wis de in-memory cache."""
+    """Sla de actieve videolijst op in Firestore en/of lokaal bestand."""
+    if _db:
+        try:
+            _db.collection('cache').document('active_videos').set({'videos': videos})
+        except Exception as e:
+            print(f"⚠️  Firestore videos opslaan mislukt: {e}")
     try:
         os.makedirs(DATA_DIR, exist_ok=True)
         with open(ACTIEVE_VIDEOS_PAD, "w", encoding="utf-8") as f:
@@ -445,7 +492,16 @@ def _haal_en_roteer_videos():
 # ══════════════════════════════════════════════════════════
 
 def _laad_vragen_cache() -> dict:
-    """Laad gecachede vragen uit bestand. Geeft lege dict bij ontbreken/fout."""
+    """Laad gecachede vragen: eerst Firestore, dan lokaal bestand."""
+    if _db:
+        try:
+            docs = _db.collection('questions_cache').stream()
+            cache = {doc.id: doc.to_dict().get('vragen', []) for doc in docs}
+            if cache:
+                print(f"💾 Vragencache geladen uit Firestore: {len(cache)} video('s)")
+                return cache
+        except Exception as e:
+            print(f"⚠️  Firestore vragencache laden mislukt: {e}")
     try:
         if os.path.exists(VRAGEN_CACHE_PAD):
             with open(VRAGEN_CACHE_PAD, encoding="utf-8") as f:
@@ -456,13 +512,23 @@ def _laad_vragen_cache() -> dict:
 
 
 def _sla_vragen_cache_op(cache: dict) -> None:
-    """Schrijf de vragencache naar bestand."""
+    """Schrijf de vragencache naar lokaal bestand (backup)."""
     try:
         os.makedirs(DATA_DIR, exist_ok=True)
         with open(VRAGEN_CACHE_PAD, "w", encoding="utf-8") as f:
             json.dump(cache, f, ensure_ascii=False, indent=2)
     except Exception as e:
         print(f"⚠️  Kon vragencache niet opslaan: {e}")
+
+
+def _sla_vraag_op(video_id: str, vragen: list) -> None:
+    """Sla vragen voor één video op in Firestore én lokaal bestand."""
+    if _db:
+        try:
+            _db.collection('questions_cache').document(video_id).set({'vragen': vragen})
+        except Exception as e:
+            print(f"⚠️  Firestore vraag opslaan mislukt: {e}")
+    _sla_vragen_cache_op(_vragen_cache)
 
 
 # In-memory cache: eenmalig laden bij opstart
@@ -499,22 +565,47 @@ def _laad_dummy_vragen(video_id: str) -> list:
     return alle_vragen.get("standaard", [])
 
 
-def _genereer_vragen_met_ai(video_id: str, video_titel: str, video_beschrijving: str) -> list:
-    """Vraagt ChatGPT om 5 meerkeuze-vragen te maken over de video."""
-    heeft_inhoud = len(video_beschrijving.strip()) > 80
+def _haal_transcript_op(video_id: str) -> str:
+    """Haalt de gesproken tekst op via YouTube captions. Geeft lege string terug bij mislukken."""
+    if not _transcript_api_beschikbaar:
+        return ""
+    try:
+        fragmenten = YouTubeTranscriptApi.get_transcript(video_id, languages=['nl', 'en'])
+        tekst = " ".join(f["text"] for f in fragmenten)
+        return tekst[:4000]
+    except (NoTranscriptFound, TranscriptsDisabled):
+        return ""
+    except Exception as e:
+        print(f"⚠️  Transcript ophalen mislukt voor '{video_id}': {e}")
+        return ""
 
-    inhoud_richtlijn = (
-        "FOCUS UITSLUITEND op de inhoud van het filmpje: feiten die worden uitgelegd, "
-        "hoe iets werkt, welke begrippen voorkomen, wat er getoond of besproken wordt."
-        if heeft_inhoud else
-        "Stel vragen op basis van wat je kunt afleiden uit de titel en beschrijving."
-    )
+
+def _genereer_vragen_met_ai(video_id: str, video_titel: str, video_beschrijving: str, transcript: str = "") -> list:
+    """Vraagt ChatGPT om 5 meerkeuze-vragen te maken over de video."""
+    heeft_transcript = len(transcript.strip()) > 100
+    heeft_beschrijving = len(video_beschrijving.strip()) > 80
+
+    if heeft_transcript:
+        inhoud_blok = f"- Gesproken tekst uit het filmpje:\n{transcript}"
+        inhoud_richtlijn = (
+            "FOCUS UITSLUITEND op de gesproken tekst hierboven: feiten die worden uitgelegd, "
+            "hoe iets werkt, welke begrippen voorkomen, wat er besproken wordt."
+        )
+    elif heeft_beschrijving:
+        inhoud_blok = f"- Beschrijving: {video_beschrijving}"
+        inhoud_richtlijn = (
+            "FOCUS UITSLUITEND op de inhoud van het filmpje: feiten die worden uitgelegd, "
+            "hoe iets werkt, welke begrippen voorkomen, wat er getoond of besproken wordt."
+        )
+    else:
+        inhoud_blok = f"- Beschrijving: {video_beschrijving}"
+        inhoud_richtlijn = "Stel vragen op basis van wat je kunt afleiden uit de titel en beschrijving."
 
     prompt = f"""Je bent een kindvriendelijke leraar voor kinderen van 8 jaar.
 
 Er is net een YouTube-filmpje bekeken:
 - Titel: {video_titel}
-- Beschrijving: {video_beschrijving}
+{inhoud_blok}
 
 {inhoud_richtlijn}
 
@@ -570,24 +661,41 @@ Regels:
 
 def laad_vragen(video_id: str, video_titel: str = "", video_beschrijving: str = "") -> list:
     """
-    Geeft vragen terug (AI of dummy, afhankelijk van USE_AI).
-    Bij AI-modus: resultaat wordt gecached per video_id zodat iedere
-    volgende speler de vragen meteen krijgt zonder nieuwe API-aanroep.
+    Geeft vragen terug via drie lagen:
+      1. In-memory cache (razendsnel, verdwijnt bij herstart)
+      2. Firestore (persistent, overleeft herstart en meerdere workers)
+      3. OpenAI genereren (alleen als er nog geen vragen zijn)
     """
     global _vragen_cache
 
-    # ── Controleer cache eerst ────────────────────────────
+    # Laag 1: in-memory
     if video_id in _vragen_cache:
-        print(f"💾 Vragen voor '{video_id}' uit cache (geen API-call nodig)")
+        print(f"💾 Vragen voor '{video_id}' uit geheugen")
         return _vragen_cache[video_id]
 
+    # Laag 2: Firestore (een andere worker kan al gegenereerd hebben)
+    if _db:
+        try:
+            doc = _db.collection('questions_cache').document(video_id).get()
+            if doc.exists:
+                vragen = doc.to_dict().get('vragen', [])
+                if vragen:
+                    _vragen_cache[video_id] = vragen
+                    print(f"💾 Vragen voor '{video_id}' uit Firestore")
+                    return vragen
+        except Exception as e:
+            print(f"⚠️  Firestore check mislukt: {e}")
+
+    # Laag 3: genereren via OpenAI
     if USE_AI and _openai_client:
         try:
-            vragen = _genereer_vragen_met_ai(video_id, video_titel, video_beschrijving)
-            # Sla op in cache voor alle volgende spelers
+            transcript = _haal_transcript_op(video_id)
+            if transcript:
+                print(f"📝 Transcript opgehaald voor '{video_id}' ({len(transcript)} tekens)")
+            vragen = _genereer_vragen_met_ai(video_id, video_titel, video_beschrijving, transcript)
             _vragen_cache[video_id] = vragen
-            _sla_vragen_cache_op(_vragen_cache)
-            print(f"✅ Vragen voor '{video_id}' gegenereerd en gecached")
+            _sla_vraag_op(video_id, vragen)
+            print(f"✅ Vragen voor '{video_id}' gegenereerd en opgeslagen")
             return vragen
         except Exception as fout:
             print(f"⚠️  OpenAI-fout, val terug op dummy-vragen: {fout}")
@@ -731,9 +839,10 @@ def prewarm_questions():
         if video_id in _vragen_cache:
             return
         try:
-            vragen = _genereer_vragen_met_ai(video_id, video["titel"], video["beschrijving"])
+            transcript = _haal_transcript_op(video_id)
+            vragen = _genereer_vragen_met_ai(video_id, video["titel"], video["beschrijving"], transcript)
             _vragen_cache[video_id] = vragen
-            _sla_vragen_cache_op(_vragen_cache)
+            _sla_vraag_op(video_id, vragen)
             print(f"🔥 Pre-warm klaar voor '{video_id}'")
         except Exception as e:
             print(f"⚠️  Pre-warm mislukt voor '{video_id}': {e}")
