@@ -32,6 +32,8 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
 
 from flask import Flask, jsonify, render_template, request
 from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 try:
     from youtube_transcript_api import YouTubeTranscriptApi, NoTranscriptFound, TranscriptsDisabled
@@ -41,6 +43,17 @@ except ImportError:
 
 app = Flask(__name__)
 CORS(app)
+
+def _get_ip():
+    # Cloudflare stuurt het echte IP-adres via CF-Connecting-IP
+    return request.headers.get("CF-Connecting-IP") or get_remote_address()
+
+limiter = Limiter(
+    key_func=_get_ip,
+    app=app,
+    default_limits=[],
+    storage_uri="memory://",
+)
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 
@@ -770,6 +783,7 @@ def search_videos():
 
 
 @app.route("/api/questions")
+@limiter.limit("10 per minute")
 def get_questions():
     """
     Geeft meerkeuze-vragen terug voor een video.
@@ -810,6 +824,7 @@ def get_questions():
 
 
 @app.route("/api/prewarm", methods=["POST"])
+@limiter.limit("10 per minute")
 def prewarm_questions():
     """
     Start vraag-generatie op de achtergrond zodra een video gekozen wordt.
@@ -863,6 +878,11 @@ def get_status():
         "actieve_videos":    len(actieve),
         "kanalen":           [k["naam"] for k in KANALEN],
     })
+
+
+@app.errorhandler(429)
+def te_veel_verzoeken(e):
+    return jsonify({"error": "Te veel verzoeken. Wacht even en probeer het opnieuw."}), 429
 
 
 # ══════════════════════════════════════════════════════════
